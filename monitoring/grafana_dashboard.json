@@ -1,0 +1,19 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "CryptoHawk Dashboard",
+    "panels": [
+      {
+        "title": "HTTP Requests",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "http_requests_total",
+            "legendFormat": "{{method}} {{endpoint}}"
+          }
+        ]
+      }
+    ]
+  },
+  "overwrite": false
+}
