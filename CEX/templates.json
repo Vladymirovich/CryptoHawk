@@ -1,0 +1,68 @@
+{
+  "default_cex": {
+    "title": "📊 CEX Tracking Alert",
+    "message": "Asset: {{asset}}\nVolume: {{volume}} (~{{volume_usd}})\nExchange: {{exchange}}\nTime: {{time_utc}}\nAction: {{action_type}}\n\n#CryptoHawk CEX",
+    "parameters": [
+      "asset",
+      "volume",
+      "volume_usd",
+      "exchange",
+      "time_utc",
+      "action_type"
+    ]
+  },
+  "flow_alerts": {
+    "title": "⚠️ Flow Alert",
+    "message": "Large flow on {{exchange}}: {{volume}} USDT\nTime: {{time_utc}}\n#FlowAlerts",
+    "parameters": [
+      "exchange",
+      "volume",
+      "time_utc"
+    ]
+  },
+  "cex_tracking": {
+    "title": "🏦 CEX Tracking",
+    "message": "CEX Tracking triggered for {{asset}}\nVolume: {{volume}}\nExchange: {{exchange}}\nTime: {{time_utc}}",
+    "parameters": [
+      "asset",
+      "volume",
+      "exchange",
+      "time_utc"
+    ]
+  },
+  "all_spot": {
+    "title": "All Spot",
+    "message": "Spot aggregator for {{asset}}\nVolume: {{volume}}\nTime: {{time_utc}}",
+    "parameters": [
+      "asset",
+      "volume",
+      "time_utc"
+    ]
+  },
+  "all_derivatives": {
+    "title": "All Derivatives",
+    "message": "Derivatives aggregator: {{asset}}\nVolume: {{volume}} ~{{volume_usd}}\nTime: {{time_utc}}",
+    "parameters": [
+      "asset",
+      "volume",
+      "volume_usd",
+      "time_utc"
+    ]
+  },
+  "all_spot_percent": {
+    "title": "All Spot%",
+    "message": "Spot aggregator by %: {{asset}}\nTime: {{time_utc}}",
+    "parameters": [
+      "asset",
+      "time_utc"
+    ]
+  },
+  "all_derivatives_percent": {
+    "title": "All Derivatives%",
+    "message": "Derivatives aggregator by %: {{asset}}\nTime: {{time_utc}}",
+    "parameters": [
+      "asset",
+      "time_utc"
+    ]
+  }
+}
