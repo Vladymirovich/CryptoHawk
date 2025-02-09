@@ -11,19 +11,10 @@ const {
   evaluateAllDerivativesPercent
 } = require('./filters');
 
-// In-memory settings (в реальном проекте можно хранить в базе)
-const cexSettings = {
-  flowAlerts: { active: false },
-  cexTracking: { active: false },
-  allSpot: { active: false, filters: {} },
-  allDerivatives: { active: false, filters: {} },
-  allSpotPercent: { active: false, filters: {} },
-  allDerivativesPercent: { active: false, filters: {} }
-};
-
 class CEXEventBus extends EventEmitter {}
 const cexEventBus = new CEXEventBus();
 
+// Загрузка шаблонов уведомлений для CEX из файла templates.json
 let templates = {};
 try {
   const templatePath = path.join(__dirname, 'templates.json');
@@ -33,91 +24,100 @@ try {
   logger.error(`CEX Module: Error reading templates: ${err.message}`);
 }
 
+// Механизм объединения событий: если два события с одинаковыми метриками (по name и metrics) приходят в течение 30 секунд, объединяем их.
 const mergedEvents = {};
 const mergeThreshold = 30 * 1000;
 
+// Функция для подстановки шаблона
 function applyTemplate(templateObj, data) {
-  let msg = `${templateObj.title}\n\n${templateObj.message}`;
-  templateObj.parameters.forEach((p) => {
-    const reg = new RegExp(`{{${p}}}`, 'g');
-    msg = msg.replace(reg, data[p] || 'N/A');
+  let message = `${templateObj.title}\n\n${templateObj.message}`;
+  templateObj.parameters.forEach((param) => {
+    const regex = new RegExp(`{{${param}}}`, 'g');
+    message = message.replace(regex, data[param] || 'N/A');
   });
-  return msg;
+  return message;
 }
 
+// Формируем уведомление на основе шаблона и данных события
 function formatNotification(eventObj) {
   const { data } = eventObj;
-  const eventType = data.event_type || 'default_cex';
+  // event_type определяет тип уведомления, если не задан, используем "large_inflow_outflow" как дефолт
+  const eventType = data.event_type || 'large_inflow_outflow';
   const chosen = templates[eventType];
   if (!chosen) {
-    return {
-      message: `CEX Event: ${data.name}\nDetails: ${JSON.stringify(data, null, 2)}`
-    };
+    return { message: `CEX Event: ${data.event}\n${JSON.stringify(data, null, 2)}` };
   }
-
-  const msgData = {
+  // Формируем данные для подстановки
+  const templateData = {
     asset: data.asset || 'N/A',
+    event: data.event || 'N/A',
     volume: data.volume || 'N/A',
     volume_usd: data.volume_usd || 'N/A',
     exchange: data.exchange || 'N/A',
     time_utc: data.time_utc || 'N/A',
-    action_type: data.action_type || 'N/A'
+    commentary: data.commentary || 'N/A',
+    timeframe: data.timeframe || 'N/A',
+    price: data.price || 'N/A',
+    price_change_24h: data.price_change_24h || '',
+    volume_24h: data.volume_24h || 'N/A',
+    action_type: data.action_type || 'N/A',
+    open_interest: data.open_interest || 'N/A',
+    volatility: data.volatility || 'N/A',
+    previous_time: data.previous_time || 'N/A',
+    previous_text: data.previous_text || 'N/A'
   };
-  return { message: applyTemplate(chosen, msgData) };
+  return { message: applyTemplate(chosen, templateData) };
 }
 
+// Основная функция обработки события
 function processCEXEvent(eventData) {
-  // Определяем категорию (flow_alerts, cex_tracking, all_spot, ...).
-  const category = eventData.category; // например, 'flow_alerts'
-  let pass = false;
-
+  // eventData.category должно содержать одну из следующих строк:
+  // 'flow_alerts', 'cex_tracking', 'all_spot', 'all_derivatives', 'all_spot_percent', 'all_derivatives_percent'
+  const category = eventData.category;
+  let passFilter = false;
   switch (category) {
     case 'flow_alerts':
-      pass = evaluateFlowAlerts(eventData, cexSettings.flowAlerts);
+      passFilter = evaluateFlowAlerts(eventData, eventData.settings || {});
       break;
     case 'cex_tracking':
-      pass = evaluateCexTracking(eventData, cexSettings.cexTracking);
+      passFilter = evaluateCexTracking(eventData, eventData.settings || {});
       break;
     case 'all_spot':
-      pass = evaluateAllSpot(eventData, cexSettings.allSpot);
+      passFilter = evaluateAllSpot(eventData, eventData.settings || {});
       break;
     case 'all_derivatives':
-      pass = evaluateAllDerivatives(eventData, cexSettings.allDerivatives);
+      passFilter = evaluateAllDerivatives(eventData, eventData.settings || {});
       break;
     case 'all_spot_percent':
-      pass = evaluateAllSpotPercent(eventData, cexSettings.allSpotPercent);
+      passFilter = evaluateAllSpotPercent(eventData, eventData.settings || {});
       break;
     case 'all_derivatives_percent':
-      pass = evaluateAllDerivativesPercent(eventData, cexSettings.allDerivativesPercent);
+      passFilter = evaluateAllDerivativesPercent(eventData, eventData.settings || {});
       break;
     default:
-      // Если категория не указана или неизвестна – можно либо пропускать, либо принимать
-      pass = false;
+      logger.info(`CEX: Unknown category "${category}" - event filtered out.`);
+      return;
   }
 
-  if (!pass) {
-    logger.info(`CEX: Event [${eventData.name}] filtered out by category ${category}.`);
+  if (!passFilter) {
+    logger.info(`CEX: Event "${eventData.event}" did not pass filter for category "${category}".`);
     return;
   }
 
-  // Механизм объединения (30с)
-  const key = JSON.stringify({
-    name: eventData.name,
-    metrics: eventData.metrics
-  });
+  // Объединяем события с одинаковыми ключами (по event и metrics)
+  const key = JSON.stringify({ event: eventData.event, metrics: eventData.metrics });
   const now = Date.now();
-
   if (mergedEvents[key] && (now - mergedEvents[key].timestamp < mergeThreshold)) {
     mergedEvents[key].data = { ...mergedEvents[key].data, ...eventData };
     mergedEvents[key].timestamp = now;
-    logger.info(`CEX: Merged event ${eventData.name}`);
+    logger.info(`CEX: Merged event "${eventData.event}".`);
     cexEventBus.emit('notification', formatNotification(mergedEvents[key]));
   } else {
     mergedEvents[key] = {
       data: eventData,
       timestamp: now
     };
-    logger.info(`CEX: New event ${eventData.name}`);
+    logger.info(`CEX: New event "${eventData.event}".`);
     cexEventBus.emit('notification', formatNotification(mergedEvents[key]));
   }
 }
