@@ -2,14 +2,14 @@
   "flow_alerts": {
     "title": "⚠️ Flow Alerts Movement! 🚨",
     "message": "💰 Volume: {{volume}} (~{{volume_usd}})\n"
-               + "📈 Asset: {{asset}}\n"
-               + "🏦 Exchange: {{exchange}}\n"
-               + "🕒 Time: {{time_utc}}\n"
-               + "🌐 Event: {{event}}\n\n"
-               + "📊 Commentary:\n{{commentary}}\n\n"
-               + "Additionally:\n"
-               + " • 🔗 View Transaction in the Blockchain\n\n"
-               + "#CryptoScreener",
+               "📈 Asset: {{asset}}\n"
+               "🏦 Exchange: {{exchange}}\n"
+               "🕒 Time: {{time_utc}}\n"
+               "🌐 Event: {{event}}\n\n"
+               "📊 Commentary:\n{{commentary}}\n\n"
+               "Additionally:\n"
+               " • 🔗 View Transaction in the Blockchain\n\n"
+               "#CryptoScreener",
     "parameters": [
       "asset", "event", "volume", "volume_usd", "exchange", "time_utc", "commentary"
     ]
@@ -18,18 +18,18 @@
   "cex_tracking": {
     "title": "🎰🔔 CEX Event: {{event}} #{{asset}}",
     "message": "💰 Volume: {{volume}} (~{{volume_usd}}) in {{timeframe}}\n"
-               + "📈 Price: {{price}} {{price_change_24h}}\n"
-               + "🏦 Exchange: {{exchange}}\n"
-               + "📊 24h Volume: {{volume_24h}}\n"
-               + "⚡ Action Type: {{action_type}}\n"
-               + "📉 Open Interest: {{open_interest}}\n"
-               + "🌪️ Volatility: {{volatility}}\n\n"
-               + "🕒 Previous event for #{{asset}}:\n"
-               + " • {{previous_time}} ago, {{previous_text}}\n\n"
-               + "Additionally:\n"
-               + " • 🕒 Time: {{time_utc}}\n"
-               + " • 🔗 Transaction in the Blockchain\n\n"
-               + "#CryptoScreener",
+               "📈 Price: {{price}} {{price_change_24h}}\n"
+               "🏦 Exchange: {{exchange}}\n"
+               "📊 24h Volume: {{volume_24h}}\n"
+               "⚡ Action Type: {{action_type}}\n"
+               "📉 Open Interest: {{open_interest}}\n"
+               "🌪️ Volatility: {{volatility}}\n\n"
+               "🕒 Previous event for #{{asset}}:\n"
+               " • {{previous_time}} ago, {{previous_text}}\n\n"
+               "Additionally:\n"
+               " • 🕒 Time: {{time_utc}}\n"
+               " • 🔗 Transaction in the Blockchain\n\n"
+               "#CryptoScreener",
     "parameters": [
       "event", "asset", "volume", "volume_usd", "timeframe", "price", "price_change_24h",
       "exchange", "volume_24h", "action_type", "open_interest", "volatility",
