@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: __dirname + '/../config/.env' });
 const { Telegraf } = require('telegraf');
 const cexEventBus = require('../CEX/events');
 const logger = require('../logs/apiLogger');
