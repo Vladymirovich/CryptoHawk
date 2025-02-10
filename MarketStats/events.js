@@ -1,5 +1,5 @@
+// MarketStats/events.js
 const EventEmitter = require('events');
-const logger = require('../logs/apiLogger');
 const fs = require('fs');
 const path = require('path');
 const { evaluateOpenInterest, evaluateTopFunding, evaluateGenericMarketStat } = require('./filters');
@@ -7,14 +7,13 @@ const { evaluateOpenInterest, evaluateTopFunding, evaluateGenericMarketStat } = 
 class MarketStatsEventBus extends EventEmitter {}
 const marketStatsEventBus = new MarketStatsEventBus();
 
-// Загрузка шаблонов уведомлений из templates.json
 let templates = {};
 try {
   const templatePath = path.join(__dirname, 'templates.json');
   const raw = fs.readFileSync(templatePath, 'utf8');
   templates = JSON.parse(raw);
 } catch (err) {
-  logger.error(`MarketStats Module: Error reading templates: ${err.message}`);
+  console.error(`MarketStats Module: Error reading templates: ${err.message}`);
 }
 
 const mergedEvents = {};
@@ -31,7 +30,7 @@ function applyTemplate(templateObj, data) {
 
 function formatNotification(eventObj) {
   const { data } = eventObj;
-  const eventType = data.event_type || 'generic';
+  const eventType = data.type || 'generic';
   const chosen = templates[eventType];
   if (!chosen) {
     return { message: `MarketStats Event: ${data.event}\n${JSON.stringify(data, null, 2)}` };
@@ -42,44 +41,42 @@ function formatNotification(eventObj) {
     value: data.value || 'N/A',
     change: data.change || 'N/A',
     period: data.period || 'N/A',
-    graph_url: data.graph_url || 'N/A',
-    additionalInfo: data.additionalInfo || ''
+    graph_url: data.graph_url || 'N/A'
   };
   return { message: applyTemplate(chosen, templateData), graph_url: templateData.graph_url };
 }
 
 function processMarketStatsEvent(eventData) {
-  const type = eventData.type;
+  // Здесь можно добавить дополнительную фильтрацию, если нужно.
   let passFilter = false;
-  
-  switch (type) {
+  switch (eventData.type) {
     case 'open_interest':
-    case 'top_oi':
-      passFilter = evaluateOpenInterest(eventData, eventData.settings || {});
+      passFilter = evaluateOpenInterest(eventData, { active: true });
       break;
     case 'top_funding':
-      passFilter = evaluateTopFunding(eventData, eventData.settings || {});
+      passFilter = evaluateTopFunding(eventData, { active: true });
       break;
     default:
-      passFilter = evaluateGenericMarketStat(eventData, eventData.settings || { active: true });
+      passFilter = evaluateGenericMarketStat(eventData, { active: true });
       break;
   }
   
   if (!passFilter) {
-    logger.info(`MarketStats: Event "${eventData.event}" of type "${type}" filtered out.`);
+    console.log(`MarketStats: Event "${eventData.event}" of type "${eventData.type}" filtered out.`);
     return;
   }
   
-  const key = JSON.stringify({ event: eventData.event, type, metrics: eventData.metrics });
+  const key = JSON.stringify({ event: eventData.event, type: eventData.type, metrics: eventData.metrics });
   const now = Date.now();
+  
   if (mergedEvents[key] && (now - mergedEvents[key].timestamp < mergeThreshold)) {
     mergedEvents[key].data = { ...mergedEvents[key].data, ...eventData };
     mergedEvents[key].timestamp = now;
-    logger.info(`MarketStats: Merged event "${eventData.event}" of type "${type}".`);
+    console.log(`MarketStats: Merged event "${eventData.event}" of type "${eventData.type}".`);
     marketStatsEventBus.emit('notification', formatNotification(mergedEvents[key]));
   } else {
     mergedEvents[key] = { data: eventData, timestamp: now };
-    logger.info(`MarketStats: New event "${eventData.event}" of type "${type}".`);
+    console.log(`MarketStats: New event "${eventData.event}" of type "${eventData.type}".`);
     marketStatsEventBus.emit('notification', formatNotification(mergedEvents[key]));
   }
 }
