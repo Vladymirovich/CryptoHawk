@@ -1,5 +1,5 @@
 // bots/marketStatsBot.js
-
+require('../MarketStats/poller');
 require('dotenv').config({ path: __dirname + '/../config/.env' });
 const { Telegraf } = require('telegraf');
 const marketStatsEventBus = require('../MarketStats/events');
