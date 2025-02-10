@@ -219,9 +219,17 @@ bot.action('cex_filters_cex_tracking', (ctx) => {
 
 // ... и так далее
 
-bot.launch().then(() => {
-  logger.info('CryptoHawk Admin Bot (CEX Screen) launched.');
-});
+bot.telegram.setWebhook('')
+  .then(() => {
+    return bot.launch();
+  })
+  .then(() => {
+    logger.info('CryptoHawk Admin Bot launched.');
+  })
+  .catch(err => {
+    logger.error(`Error launching admin bot: ${err.message}`);
+  });
+
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
