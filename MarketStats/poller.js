@@ -31,7 +31,7 @@ async function pollData() {
             type: 'eth_gas',
             asset: coin.symbol,
             event: 'ETH Gas Update',
-            value: coin.quote.USD.price, // Здесь можно заменить на реальное значение, если доступно
+            value: coin.quote.USD.price, // Замените на корректное значение, если доступно
             change: coin.quote.USD.percent_change_24h,
             period: '1min',
             graph_url: coin.logo ? coin.logo : DEFAULT_GRAPH_URL,
