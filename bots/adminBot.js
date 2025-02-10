@@ -15,7 +15,7 @@ try {
 
 const bot = new Telegraf(process.env.TELEGRAM_ADMIN_BOT_TOKEN);
 
-// White-list проверка
+// White-list middleware
 bot.use((ctx, next) => {
   const userId = ctx.from?.id;
   if (!adminList.includes(userId)) {
@@ -24,7 +24,7 @@ bot.use((ctx, next) => {
   return next();
 });
 
-// Пример главного меню
+// Основное меню (остальное меню не изменялось)
 function getMainKeyboard() {
   return Markup.keyboard([
     ['Market Status', 'OnChain'],
@@ -41,61 +41,66 @@ bot.help((ctx) => {
   ctx.reply('Available commands: Market Status, OnChain, CEX Screen, DEX Screen, News, Trends, Activate Bots, Status', getMainKeyboard());
 });
 
-// Пример обработчика для CEX Screen (подменю)
+// -------------------- Обработчик для кнопки "CEX Screen" --------------------
 bot.hears('CEX Screen', (ctx) => {
-  ctx.reply('CEX Screen Settings:\nSelect category to enable/disable or open filters.', buildCexMenu());
+  // Вывод подменю для CEX Screen с 6 категориями.
+  return ctx.reply(
+    'CEX Screen Settings:\nSelect a category to toggle or adjust filters:',
+    Markup.inlineKeyboard([
+      [
+        Markup.button.callback(getLabel("Flow Alerts"), 'cex_toggle_flow_alerts'),
+        Markup.button.callback("Filters", 'cex_filters_flow_alerts')
+      ],
+      [
+        Markup.button.callback(getLabel("CEX Tracking"), 'cex_toggle_cex_tracking'),
+        Markup.button.callback("Filters", 'cex_filters_cex_tracking')
+      ],
+      [
+        Markup.button.callback(getLabel("All Spot"), 'cex_toggle_all_spot'),
+        Markup.button.callback("Filters", 'cex_filters_all_spot')
+      ],
+      [
+        Markup.button.callback(getLabel("All Derivatives"), 'cex_toggle_all_derivatives'),
+        Markup.button.callback("Filters", 'cex_filters_all_derivatives')
+      ],
+      [
+        Markup.button.callback(getLabel("All Spot%"), 'cex_toggle_all_spot_percent'),
+        Markup.button.callback("Filters", 'cex_filters_all_spot_percent')
+      ],
+      [
+        Markup.button.callback(getLabel("All Derivatives%"), 'cex_toggle_all_derivatives_percent'),
+        Markup.button.callback("Filters", 'cex_filters_all_derivatives_percent')
+      ]
+    ]).extra()
+  );
 });
 
-// Функция для построения inline-клавиатуры CEX Screen
-function buildCexMenu() {
-  return Markup.inlineKeyboard([
-    [
-      Markup.callbackButton(getLabelFlowAlerts(), 'cex_toggle_flow_alerts'),
-      Markup.callbackButton('Filters', 'cex_filters_flow_alerts')
-    ],
-    [
-      Markup.callbackButton(getLabelCexTracking(), 'cex_toggle_cex_tracking'),
-      Markup.callbackButton('Filters', 'cex_filters_cex_tracking')
-    ],
-    [
-      Markup.callbackButton(getLabelAllSpot(), 'cex_toggle_all_spot'),
-      Markup.callbackButton('Filters', 'cex_filters_all_spot')
-    ],
-    [
-      Markup.callbackButton(getLabelAllDerivatives(), 'cex_toggle_all_derivatives'),
-      Markup.callbackButton('Filters', 'cex_filters_all_derivatives')
-    ],
-    [
-      Markup.callbackButton(getLabelAllSpotPercent(), 'cex_toggle_all_spot_percent'),
-      Markup.callbackButton('Filters', 'cex_filters_all_spot_percent')
-    ],
-    [
-      Markup.callbackButton(getLabelAllDerivativesPercent(), 'cex_toggle_all_derivatives_percent'),
-      Markup.callbackButton('Filters', 'cex_filters_all_derivatives_percent')
-    ]
-  ]);
+// Функция для формирования ярлыка с toggle-статусом
+function getLabel(category) {
+  // Используем in-memory объект настроек (пример)
+  // Если настройки отсутствуют, по умолчанию считаем неактивными
+  const settings = cexSettings[camelCase(category)] || { active: false };
+  return settings.active ? `✅${category}` : `❌${category}`;
 }
 
-function getLabelFlowAlerts() {
-  return cexSettings.flowAlerts.active ? '✅Flow Alerts' : '❌Flow Alerts';
-}
-function getLabelCexTracking() {
-  return cexSettings.cexTracking.active ? '✅CEX Tracking' : '❌CEX Tracking';
-}
-function getLabelAllSpot() {
-  return cexSettings.allSpot.active ? '✅All Spot' : '❌All Spot';
-}
-function getLabelAllDerivatives() {
-  return cexSettings.allDerivatives.active ? '✅All Derivatives' : '❌All Derivatives';
-}
-function getLabelAllSpotPercent() {
-  return cexSettings.allSpotPercent.active ? '✅All Spot%' : '❌All Spot%';
-}
-function getLabelAllDerivativesPercent() {
-  return cexSettings.allDerivativesPercent.active ? '✅All Derivatives%' : '❌All Derivatives%';
+// Преобразование строки в camelCase (например, "Flow Alerts" → "flowAlerts")
+function camelCase(str) {
+  return str
+    .toLowerCase()
+    .replace(/[^a-z0-9]+(.)/g, (m, chr) => chr);
 }
 
-// Toggle callbacks для CEX Screen
+// Пример in-memory настроек для CEX Screen (глобально в этом файле)
+const cexSettings = {
+  flowAlerts: { active: false },
+  cexTracking: { active: false },
+  allSpot: { active: false },
+  allDerivatives: { active: false },
+  allSpotPercent: { active: false },
+  allDerivativesPercent: { active: false }
+};
+
+// Toggle callback для каждой категории
 bot.action('cex_toggle_flow_alerts', (ctx) => {
   cexSettings.flowAlerts.active = !cexSettings.flowAlerts.active;
   ctx.answerCbQuery(`Flow Alerts now ${cexSettings.flowAlerts.active ? 'ENABLED' : 'DISABLED'}`);
@@ -127,85 +132,89 @@ bot.action('cex_toggle_all_derivatives_percent', (ctx) => {
   ctx.editMessageReplyMarkup(buildCexMenu().reply_markup);
 });
 
-// Пример Filters callback для Flow Alerts
-bot.action('cex_filters_flow_alerts', (ctx) => {
-  ctx.answerCbQuery();
-  ctx.reply(
-    `Flow Alerts Filters\n\nFlows Alert Tracker is designed to monitor exchange transactions.\nLarge inflows or outflows may indicate impending price or market sentiment changes.\n\nSelect an option:`,
+// Функция для пересборки меню CEX Screen
+function buildCexMenu() {
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.callback(getLabel("Flow Alerts"), 'cex_toggle_flow_alerts'),
+      Markup.button.callback("Filters", 'cex_filters_flow_alerts')
+    ],
+    [
+      Markup.button.callback(getLabel("CEX Tracking"), 'cex_toggle_cex_tracking'),
+      Markup.button.callback("Filters", 'cex_filters_cex_tracking')
+    ],
+    [
+      Markup.button.callback(getLabel("All Spot"), 'cex_toggle_all_spot'),
+      Markup.button.callback("Filters", 'cex_filters_all_spot')
+    ],
+    [
+      Markup.button.callback(getLabel("All Derivatives"), 'cex_toggle_all_derivatives'),
+      Markup.button.callback("Filters", 'cex_filters_all_derivatives')
+    ],
+    [
+      Markup.button.callback(getLabel("All Spot%"), 'cex_toggle_all_spot_percent'),
+      Markup.button.callback("Filters", 'cex_filters_all_spot_percent')
+    ],
+    [
+      Markup.button.callback(getLabel("All Derivatives%"), 'cex_toggle_all_derivatives_percent'),
+      Markup.button.callback("Filters", 'cex_filters_all_derivatives_percent')
+    ]
+  ]).extra();
+}
+
+// Callback для кнопки "Activate Bots"
+bot.hears('Activate Bots', (ctx) => {
+  return ctx.reply(
+    "Activate Bots:\nSelect a bot to activate:",
     Markup.inlineKeyboard([
-      [Markup.callbackButton('Favorite coins', 'flow_alerts_fav')],
-      [Markup.callbackButton('Unwanted coins', 'flow_alerts_unw')],
-      [Markup.callbackButton('AutoTrack', 'flow_alerts_auto')]
-    ])
+      [
+        Markup.button.callback("Market Status", "activate_market_status"),
+        Markup.button.callback("OnChain", "activate_onchain")
+      ],
+      [
+        Markup.button.callback("CEX Screen", "activate_cex_screen"),
+        Markup.button.callback("DEX Screen", "activate_dex_screen")
+      ],
+      [
+        Markup.button.callback("News", "activate_news"),
+        Markup.button.callback("Trends", "activate_trends")
+      ]
+    ]).extra()
   );
 });
 
-bot.action('flow_alerts_fav', (ctx) => {
+// Примеры callback-обработчиков для Activate Bots
+bot.action('activate_market_status', (ctx) => {
   ctx.answerCbQuery();
-  ctx.reply('Please enter your favorite coins (comma-separated, e.g., BTC,ETH,BNB):');
+  ctx.reply('Activate Market Status Bot: [Click here](https://t.me/CryptoHawkMarketStatusBot)', { parse_mode: 'Markdown' });
 });
-bot.action('flow_alerts_unw', (ctx) => {
+bot.action('activate_onchain', (ctx) => {
   ctx.answerCbQuery();
-  ctx.reply('Please enter unwanted coins (comma-separated):');
+  ctx.reply('Activate OnChain Bot: [Click here](https://t.me/CryptoHawkOnChainBot)', { parse_mode: 'Markdown' });
 });
-bot.action('flow_alerts_auto', (ctx) => {
-  // Toggle autoTrack for Flow Alerts
-  // Для примера: просто логируем изменение
-  ctx.answerCbQuery('AutoTrack toggled for Flow Alerts.');
-});
-
-
-// Пример Filters callback для CEX Tracking
-bot.action('cex_filters_cex_tracking', (ctx) => {
+bot.action('activate_cex_screen', (ctx) => {
   ctx.answerCbQuery();
-  ctx.reply(
-    `CEX Tracking Filters\n\nIf within 15 minutes the difference between buys and sells exceeds $100K and is ≥10% of the 24h volume, you'll receive an alert.\nFilters:\n • Rate ±5%\n • Rate ±10%\n • 60 sec ±1%\n • Activate\n • AutoTrack\n • Favorite/Unwanted coins\n\nSelect an option:`,
-    Markup.inlineKeyboard([
-      [Markup.callbackButton('Favorite coins', 'cex_tracking_fav')],
-      [Markup.callbackButton('Unwanted coins', 'cex_tracking_unw')],
-      [Markup.callbackButton('Rate ±5%', 'cex_tracking_rate5')],
-      [Markup.callbackButton('Rate ±10%', 'cex_tracking_rate10')],
-      [Markup.callbackButton('60 sec ±1%', 'cex_tracking_rate60')],
-      [Markup.callbackButton('Activate', 'cex_tracking_activate')],
-      [Markup.callbackButton('AutoTrack', 'cex_tracking_auto')]
-    ])
-  );
+  ctx.reply('Activate CEX Screen Bot: [Click here](https://t.me/CryptoHawkCEXBot)', { parse_mode: 'Markdown' });
 });
-
-// Примеры обработчиков для cex_tracking фильтров
-bot.action('cex_tracking_fav', (ctx) => {
+bot.action('activate_dex_screen', (ctx) => {
   ctx.answerCbQuery();
-  ctx.reply('Please enter favorite coins for CEX Tracking (comma-separated):');
+  ctx.reply('Activate DEX Screen Bot: [Click here](https://t.me/CryptoHawkDEXBot)', { parse_mode: 'Markdown' });
 });
-bot.action('cex_tracking_unw', (ctx) => {
+bot.action('activate_news', (ctx) => {
   ctx.answerCbQuery();
-  ctx.reply('Please enter unwanted coins for CEX Tracking (comma-separated):');
+  ctx.reply('Activate News Bot: [Click here](https://t.me/CryptoHawkNewsBot)', { parse_mode: 'Markdown' });
 });
-bot.action('cex_tracking_rate5', (ctx) => {
-  ctx.answerCbQuery('Rate ±5% filter toggled for CEX Tracking.');
+bot.action('activate_trends', (ctx) => {
+  ctx.answerCbQuery();
+  ctx.reply('Activate Trends Bot: [Click here](https://t.me/CryptoHawkTrendsBot)', { parse_mode: 'Markdown' });
 });
-bot.action('cex_tracking_rate10', (ctx) => {
-  ctx.answerCbQuery('Rate ±10% filter toggled for CEX Tracking.');
-});
-bot.action('cex_tracking_rate60', (ctx) => {
-  ctx.answerCbQuery('60 sec ±1% filter toggled for CEX Tracking.');
-});
-bot.action('cex_tracking_activate', (ctx) => {
-  ctx.answerCbQuery('Activate filter toggled for CEX Tracking.');
-});
-bot.action('cex_tracking_auto', (ctx) => {
-  ctx.answerCbQuery('AutoTrack toggled for CEX Tracking.');
-});
-
-// Аналогичные callbacks можно добавить для остальных категорий (All Spot, All Derivatives, All Spot%, All Derivatives%).
 
 bot.launch()
   .then(() => {
-    // Сбрасываем вебхук, чтобы избежать конфликтов
     return bot.telegram.setWebhook('');
   })
   .then(() => {
-    logger.info('CryptoHawk Admin Bot launched with CEX Screen submenu.');
+    logger.info('CryptoHawk Admin Bot launched with CEX Screen submenu and Activate Bots menu.');
   })
   .catch((err) => {
     logger.error(`Error launching admin bot: ${err.message}`);
