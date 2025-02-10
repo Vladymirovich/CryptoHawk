@@ -1,8 +1,9 @@
+// api/coinmarketcap.js
 const fetch = require('node-fetch');
 const { COINMARKETCAP_API_KEY } = process.env;
 
 async function fetchCoinMarketCapData() {
-  // Пример запроса: получаем топ-10 монет
+  // Пример: получаем топ-10 монет
   const url = 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?limit=10';
   const options = {
     headers: {
@@ -17,7 +18,7 @@ async function fetchCoinMarketCapData() {
       throw new Error(`HTTP error! status: ${res.status}`);
     }
     const data = await res.json();
-    return data.data; // Ожидается, что это массив объектов монет
+    return data.data; // ожидаем массив объектов монет
   } catch (error) {
     console.error('Error fetching CoinMarketCap data:', error);
     return [];
