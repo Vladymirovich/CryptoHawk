@@ -1,52 +1,52 @@
 {
   "open_interest": {
     "title": "📊 Open Interest Alert",
-    "message": "Asset: {{asset}}\nOpen Interest Change: {{change}}%\nPeriod: {{period}}\nCurrent OI: {{value}}\nAdditional Info: {{additionalInfo}}\n\n#MarketStats",
-    "parameters": ["asset", "change", "period", "value", "additionalInfo"]
+    "message": "Asset: {{asset}}\nOpen Interest Change: {{change}}%\nPeriod: {{period}}\nCurrent OI: {{value}}\nGraph: {{graph_url}}\nAdditional Info: {{additionalInfo}}\n\n#MarketStats",
+    "parameters": ["asset", "change", "period", "value", "graph_url", "additionalInfo"]
   },
   "top_funding": {
     "title": "💰 Top Funding Alert",
-    "message": "Asset: {{asset}}\nFunding Rate: {{value}}%\nMode: {{event}}\nPeriod: {{period}}\n\n#MarketStats",
-    "parameters": ["asset", "value", "event", "period"]
+    "message": "Asset: {{asset}}\nFunding Rate: {{value}}%\nMode: {{event}}\nPeriod: {{period}}\nGraph: {{graph_url}}\n\n#MarketStats",
+    "parameters": ["asset", "value", "event", "period", "graph_url"]
   },
   "crypto_etfs_net_flow": {
     "title": "📈 Crypto ETFs Net Flow",
-    "message": "Net Flow: {{value}}\nMarket Cap: {{additionalInfo}}\nTime: {{period}}\n\n#MarketStats",
-    "parameters": ["value", "additionalInfo", "period"]
+    "message": "Net Flow: {{value}}\nMarket Cap: {{additionalInfo}}\nTime: {{period}}\nGraph: {{graph_url}}\n\n#MarketStats",
+    "parameters": ["value", "additionalInfo", "period", "graph_url"]
   },
   "crypto_market_cap": {
     "title": "🏦 Crypto Market Cap Update",
-    "message": "Total Market Cap: {{value}}\nChange: {{change}}%\nTime: {{period}}\n\n#MarketStats",
-    "parameters": ["value", "change", "period"]
+    "message": "Total Market Cap: {{value}}\nChange: {{change}}%\nTime: {{period}}\nGraph: {{graph_url}}\n\n#MarketStats",
+    "parameters": ["value", "change", "period", "graph_url"]
   },
   "cmc_fear_greed": {
     "title": "😱 CMC Fear & Greed Index",
-    "message": "Index: {{value}}\nSentiment: {{event}}\nTime: {{period}}\n\n#MarketStats",
-    "parameters": ["value", "event", "period"]
+    "message": "Index: {{value}}\nSentiment: {{event}}\nTime: {{period}}\nGraph: {{graph_url}}\n\n#MarketStats",
+    "parameters": ["value", "event", "period", "graph_url"]
   },
   "cmc_altcoin_season": {
     "title": "🚀 CMC Altcoin Season Index",
-    "message": "Index: {{value}}\nIndicator: {{event}}\nTime: {{period}}\n\n#MarketStats",
-    "parameters": ["value", "event", "period"]
+    "message": "Index: {{value}}\nIndicator: {{event}}\nTime: {{period}}\nGraph: {{graph_url}}\n\n#MarketStats",
+    "parameters": ["value", "event", "period", "graph_url"]
   },
   "cmc100_index": {
     "title": "📉 CMC 100 Index",
-    "message": "Index Value: {{value}}\nChange: {{change}}%\nTime: {{period}}\n\n#MarketStats",
-    "parameters": ["value", "change", "period"]
+    "message": "Index Value: {{value}}\nChange: {{change}}%\nTime: {{period}}\nGraph: {{graph_url}}\n\n#MarketStats",
+    "parameters": ["value", "change", "period", "graph_url"]
   },
   "eth_gas": {
     "title": "⛽ ETH Gas Update",
-    "message": "Current Gas Price: {{value}}\nChange: {{change}}%\nTime: {{period}}\n\n#MarketStats",
-    "parameters": ["value", "change", "period"]
+    "message": "Current Gas Price: {{value}}\nChange: {{change}}%\nTime: {{period}}\nGraph: {{graph_url}}\n\n#MarketStats",
+    "parameters": ["value", "change", "period", "graph_url"]
   },
   "bitcoin_dominance": {
     "title": "🏆 Bitcoin Dominance",
-    "message": "Bitcoin Dominance: {{value}}%\nChange: {{change}}%\nTime: {{period}}\n\n#MarketStats",
-    "parameters": ["value", "change", "period"]
+    "message": "Bitcoin Dominance: {{value}}%\nChange: {{change}}%\nTime: {{period}}\nGraph: {{graph_url}}\n\n#MarketStats",
+    "parameters": ["value", "change", "period", "graph_url"]
   },
   "generic": {
     "title": "MarketStats Update",
-    "message": "Event: {{event}}\nAsset: {{asset}}\nValue: {{value}}\nTime: {{period}}\n\n#MarketStats",
-    "parameters": ["event", "asset", "value", "period"]
+    "message": "Event: {{event}}\nAsset: {{asset}}\nValue: {{value}}\nTime: {{period}}\nGraph: {{graph_url}}\n\n#MarketStats",
+    "parameters": ["event", "asset", "value", "period", "graph_url"]
   }
 }
