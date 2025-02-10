@@ -3,13 +3,23 @@ const { Telegraf } = require('telegraf');
 const marketStatsEventBus = require('../MarketStats/events');
 const logger = require('../logs/apiLogger');
 
+// Запускаем поллер, чтобы получать данные
+require('../MarketStats/poller');
+
 const marketBot = new Telegraf(process.env.TELEGRAM_MARKET_BOT_TOKEN);
 
 let chatId = null;
 
 marketBot.start((ctx) => {
   chatId = ctx.chat.id;
-  ctx.reply('Welcome to CryptoHawk Market Stats Bot! You will receive Market Stats alerts here.');
+  ctx.reply('Welcome to CryptoHawk Market Stats Bot!\nPress /start to begin receiving notifications.', {
+    reply_markup: { keyboard: [['/start']], resize_keyboard: true }
+  });
+});
+
+marketBot.command('start', (ctx) => {
+  chatId = ctx.chat.id;
+  ctx.reply('Market Stats Bot is active. You will receive notifications soon.');
 });
 
 marketBot.help((ctx) => {
@@ -21,15 +31,13 @@ marketStatsEventBus.on('notification', async (notification) => {
     logger.info('MarketStats Bot: Chat ID is not set yet.');
     return;
   }
-  
-  // Если уведомление содержит graph_url, отправляем картинку отдельно
+  // Если уведомление содержит graph_url и он действительный, отправляем фото
   if (notification.graph_url && notification.graph_url !== 'N/A') {
     try {
       await marketBot.telegram.sendPhoto(chatId, notification.graph_url, { caption: notification.message, parse_mode: 'Markdown' });
       logger.info('MarketStats Bot: Notification with photo sent successfully.');
     } catch (err) {
       logger.error(`MarketStats Bot error sending photo: ${err.message}`);
-      // Если отправка фото не удалась, отправляем текстовое уведомление
       await marketBot.telegram.sendMessage(chatId, notification.message, { parse_mode: 'Markdown' });
     }
   } else {
