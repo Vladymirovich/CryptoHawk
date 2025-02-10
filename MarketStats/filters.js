@@ -47,7 +47,7 @@ function evaluateOpenInterest(eventData, settings) {
  *   mode: "highest" | "lowest" | "both",
  *   period: array of strings // например, ["4h"]
  * }
- * eventData должен содержать: fundingRate (число), timestamp
+ * eventData должен содержать: fundingRate (число) и timestamp
  */
 function evaluateTopFunding(eventData, settings) {
   if (!settings.active) return false;
