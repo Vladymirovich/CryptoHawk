@@ -1,11 +1,11 @@
 // bots/marketStatsBot.js
 require('dotenv').config({ path: __dirname + '/../config/.env' });
+// Обязательно запускаем поллер MarketStats:
+require('../MarketStats/poller');
+
 const { Telegraf } = require('telegraf');
 const marketStatsEventBus = require('../MarketStats/events');
 const logger = require('../logs/apiLogger');
-
-// Запускаем пуллер, чтобы получать данные
-require('../MarketStats/poller');
 
 const marketBot = new Telegraf(process.env.TELEGRAM_MARKET_BOT_TOKEN);
 
