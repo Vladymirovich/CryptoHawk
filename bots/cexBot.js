@@ -31,9 +31,16 @@ cexEventBus.on('notification', (notification) => {
     });
 });
 
-cexBot.launch().then(() => {
-  logger.info('CryptoHawk CEX Bot launched and ready to receive alerts.');
-});
+cexBot.telegram.setWebhook('')
+  .then(() => {
+    return cexBot.launch();
+  })
+  .then(() => {
+    logger.info('CryptoHawk CEX Bot launched and ready.');
+  })
+  .catch(err => {
+    logger.error(`Error launching CEX bot: ${err.message}`);
+  });
 
 process.once('SIGINT', () => cexBot.stop('SIGINT'));
 process.once('SIGTERM', () => cexBot.stop('SIGTERM'));
