@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const logger = require('../logs/apiLogger');
 
-// Загрузка white-list администраторов
+// Загрузка white-list администраторов из config/admins.json
 const adminFile = path.join(__dirname, '../config/admins.json');
 let adminList = [];
 try {
@@ -25,7 +25,7 @@ bot.use((ctx, next) => {
   return next();
 });
 
-// In-memory настройки для CEX Screen – все по умолчанию отключены
+// In-memory настройки для CEX Screen – все по умолчанию выключены
 const cexSettings = {
   flowAlerts: { active: false, favoriteCoins: [], unwantedCoins: [], autoTrack: false },
   cexTracking: { active: false, favoriteCoins: [], unwantedCoins: [], rate5: false, rate10: false, rate60: false, activate: false, autoTrack: false },
@@ -35,7 +35,7 @@ const cexSettings = {
   allDerivativesPercent: { active: false, filters: { period: [], buy: false, sell: false } }
 };
 
-// Маппинг для корректного доступа к настройкам
+// Маппинг для категорий – используется для формирования ярлыков toggle‑кнопок
 const categoryMapping = {
   "Flow Alerts": "flowAlerts",
   "CEX Tracking": "cexTracking",
@@ -45,7 +45,14 @@ const categoryMapping = {
   "All Derivatives%": "allDerivativesPercent"
 };
 
-// Функция отображения главного меню как inline-сообщения
+// Функция формирования ярлыка с toggle‑статусом (использует categoryMapping)
+function getLabel(category) {
+  const key = categoryMapping[category];
+  const setting = cexSettings[key] || { active: false };
+  return setting.active ? `✅${category}` : `❌${category}`;
+}
+
+// Главное меню как inline-сообщение, кнопки по две в строке
 function showMainMenu(ctx) {
   const text = "Welcome to CryptoHawk Admin Bot!\nSelect an option:";
   const keyboard = Markup.inlineKeyboard([
@@ -71,36 +78,36 @@ bot.start((ctx) => {
 
 bot.action('menu_market_status', (ctx) => {
   ctx.answerCbQuery();
-  ctx.editMessageText("MarketStats settings are under development.\nReturning to main menu...", { reply_markup: {} });
+  ctx.editMessageText("MarketStats settings are under development.\nReturning to main menu...");
   setTimeout(() => showMainMenu(ctx), 2000);
 });
 bot.action('menu_onchain', (ctx) => {
   ctx.answerCbQuery();
-  ctx.editMessageText("OnChain settings are under development.\nReturning to main menu...", { reply_markup: {} });
+  ctx.editMessageText("OnChain settings are under development.\nReturning to main menu...");
   setTimeout(() => showMainMenu(ctx), 2000);
 });
 bot.action('menu_dex_screen', (ctx) => {
   ctx.answerCbQuery();
-  ctx.editMessageText("DEX Screen settings are under development.\nReturning to main menu...", { reply_markup: {} });
+  ctx.editMessageText("DEX Screen settings are under development.\nReturning to main menu...");
   setTimeout(() => showMainMenu(ctx), 2000);
 });
 bot.action('menu_news', (ctx) => {
   ctx.answerCbQuery();
-  ctx.editMessageText("News settings are under development.\nReturning to main menu...", { reply_markup: {} });
+  ctx.editMessageText("News settings are under development.\nReturning to main menu...");
   setTimeout(() => showMainMenu(ctx), 2000);
 });
 bot.action('menu_trends', (ctx) => {
   ctx.answerCbQuery();
-  ctx.editMessageText("Trends settings are under development.\nReturning to main menu...", { reply_markup: {} });
+  ctx.editMessageText("Trends settings are under development.\nReturning to main menu...");
   setTimeout(() => showMainMenu(ctx), 2000);
 });
 bot.action('menu_status', (ctx) => {
   ctx.answerCbQuery();
-  ctx.editMessageText("All systems are running normally.\nReturning to main menu...", { reply_markup: {} });
+  ctx.editMessageText("All systems are running normally.\nReturning to main menu...");
   setTimeout(() => showMainMenu(ctx), 2000);
 });
 
-// Обработчик для "Activate Bots"
+// Обработчик для "Activate Bots" – inline меню с кнопкой Back
 bot.action('menu_activate_bots', (ctx) => {
   const text = "Activate Bots:\nSelect a bot to activate:";
   const keyboard = Markup.inlineKeyboard([
@@ -192,23 +199,6 @@ function buildCexMenu() {
   return { reply_markup: keyboard.reply_markup };
 }
 
-// Функция формирования ярлыка с toggle-статусом
-function getLabel(category) {
-  const key = categoryMapping[category];
-  const setting = cexSettings[key] || { active: false };
-  return setting.active ? `✅${category}` : `❌${category}`;
-}
-
-// Маппинг для категорий
-const categoryMapping = {
-  "Flow Alerts": "flowAlerts",
-  "CEX Tracking": "cexTracking",
-  "All Spot": "allSpot",
-  "All Derivatives": "allDerivatives",
-  "All Spot%": "allSpotPercent",
-  "All Derivatives%": "allDerivativesPercent"
-};
-
 // Toggle callback handlers для CEX Screen
 bot.action('cex_toggle_flow_alerts', (ctx) => {
   cexSettings.flowAlerts.active = !cexSettings.flowAlerts.active;
@@ -242,7 +232,7 @@ bot.action('cex_toggle_all_derivatives_percent', (ctx) => {
 });
 
 // --- Filters callbacks ---
-// Flow Alerts Filters
+// Фильтры для Flow Alerts
 bot.action('cex_filters_flow_alerts', (ctx) => {
   ctx.answerCbQuery();
   const keyboard = Markup.inlineKeyboard([
@@ -266,7 +256,7 @@ bot.action('flow_alerts_auto', (ctx) => {
   ctx.answerCbQuery(`Flow Alerts AutoTrack is now ${cexSettings.flowAlerts.autoTrack ? 'ENABLED' : 'DISABLED'}`);
 });
 
-// CEX Tracking Filters
+// Фильтры для CEX Tracking
 bot.action('cex_filters_cex_tracking', (ctx) => {
   ctx.answerCbQuery();
   const keyboard = Markup.inlineKeyboard([
@@ -305,7 +295,7 @@ bot.action('cex_tracking_auto', (ctx) => {
   ctx.answerCbQuery('AutoTrack toggled for CEX Tracking.');
 });
 
-// All Spot Filters
+// Фильтры для All Spot
 bot.action('cex_filters_all_spot', (ctx) => {
   ctx.answerCbQuery();
   const keyboard = Markup.inlineKeyboard([
@@ -320,7 +310,7 @@ bot.action('cex_filters_all_spot', (ctx) => {
   ctx.editMessageText("All Spot Filters:\nSelect options for period and trade type:", { reply_markup: keyboard.reply_markup });
 });
 
-// All Derivatives Filters
+// Фильтры для All Derivatives
 bot.action('cex_filters_all_derivatives', (ctx) => {
   ctx.answerCbQuery();
   const keyboard = Markup.inlineKeyboard([
@@ -335,7 +325,7 @@ bot.action('cex_filters_all_derivatives', (ctx) => {
   ctx.editMessageText("All Derivatives Filters:\nSelect options for period and trade type:", { reply_markup: keyboard.reply_markup });
 });
 
-// All Spot% Filters
+// Фильтры для All Spot%
 bot.action('cex_filters_all_spot_percent', (ctx) => {
   ctx.answerCbQuery();
   const keyboard = Markup.inlineKeyboard([
@@ -350,7 +340,7 @@ bot.action('cex_filters_all_spot_percent', (ctx) => {
   ctx.editMessageText("All Spot% Filters:\nSelect options for period and trade type:", { reply_markup: keyboard.reply_markup });
 });
 
-// All Derivatives% Filters
+// Фильтры для All Derivatives%
 bot.action('cex_filters_all_derivatives_percent', (ctx) => {
   ctx.answerCbQuery();
   const keyboard = Markup.inlineKeyboard([
@@ -370,24 +360,15 @@ function backButton() {
   return Markup.button.callback("← Back", "cex_back_to_menu");
 }
 
-// Callback для кнопки "← Back" во всех подменю Filters
+// Callback для кнопки "← Back" во всех фильтровых подменю
 bot.action('cex_back_to_menu', (ctx) => {
   ctx.answerCbQuery();
-  // Возвращаемся в главное меню CEX Screen
-  try {
-    ctx.editMessageText("CEX Screen Settings:\nSelect a category to toggle or adjust filters.", { reply_markup: buildCexMenu().reply_markup });
-  } catch (err) {
-    if (!err.description.includes("message is not modified")) {
-      logger.error(err.message);
-    }
-  }
+  showCexScreenMenu(ctx);
 });
 
-// Запуск бота: сброс вебхука и polling
+// Сброс вебхука и запуск бота
 bot.launch()
-  .then(() => {
-    return bot.telegram.setWebhook('');
-  })
+  .then(() => bot.telegram.setWebhook(''))
   .then(() => {
     logger.info('CryptoHawk Admin Bot launched with updated menus.');
   })
