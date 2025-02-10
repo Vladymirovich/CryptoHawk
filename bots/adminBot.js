@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const logger = require('../logs/apiLogger');
 
-// Загрузка white-list администраторов
+// Загрузка white-list администраторов из config/admins.json
 const adminFile = path.join(__dirname, '../config/admins.json');
 let adminList = [];
 try {
@@ -14,7 +14,6 @@ try {
   logger.error(`Error reading admins.json: ${err.message}`);
 }
 
-// Используем переменную TELEGRAM_BOSS_BOT_TOKEN (для @CryptoHawk_boss_bot)
 const bot = new Telegraf(process.env.TELEGRAM_ADMIN_BOT_TOKEN);
 
 // White-list middleware
@@ -30,7 +29,7 @@ bot.use((ctx, next) => {
    IN-MEMORY НАСТРОЙКИ
 -------------------------- */
 
-// Настройки для CEX Screen (toggle-меню)
+// Настройки для CEX Screen (все по умолчанию выключены)
 const cexSettings = {
   flowAlerts: { active: false },
   cexTracking: { active: false },
@@ -40,7 +39,7 @@ const cexSettings = {
   allDerivativesPercent: { active: false }
 };
 
-// Настройки для MarketStats (toggle-меню)
+// Настройки для MarketStats (все по умолчанию выключены)
 const marketStatsSettings = {
   open_interest: { active: false },
   top_oi: { active: false },
@@ -91,6 +90,9 @@ function showMainMenu(ctx) {
   ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
 }
 
+/* --------------------------
+   ОБРАБОТЧИКИ ГЛАВНОГО МЕНЮ
+-------------------------- */
 bot.start((ctx) => {
   ctx.reply("Welcome to CryptoHawk Admin Bot!\nSelect an option:", {
     reply_markup: Markup.inlineKeyboard([
@@ -102,7 +104,6 @@ bot.start((ctx) => {
   });
 });
 
-// Главные пункты меню
 bot.action('menu_marketstats', (ctx) => {
   ctx.answerCbQuery();
   showMarketStatsMenu(ctx);
@@ -140,38 +141,31 @@ bot.action('menu_status', (ctx) => {
 /* --------------------------
    ACTIVATE BOTS МЕНЮ
 -------------------------- */
+// Используем URL-кнопки для автоматического перехода к ботам
 bot.action('menu_activate_bots', (ctx) => {
   const text = "Activate Bots:\nSelect a bot to activate:";
   const keyboard = Markup.inlineKeyboard([
-    [Markup.button.callback("MarketStats", "activate_marketstats"), Markup.button.callback("OnChain", "activate_onchain")],
-    [Markup.button.callback("CEX Screen", "activate_cex_screen"), Markup.button.callback("DEX Screen", "activate_dex_screen")],
-    [Markup.button.callback("News", "activate_news"), Markup.button.callback("Trends", "activate_trends")],
-    [Markup.button.callback("← Back", "back_from_activate")]
+    [
+      Markup.button.url("MarketStats", "https://t.me/CryptoHawk_market_bot"),
+      Markup.button.url("OnChain", "https://t.me/CryptoHawkOnChainBot")
+    ],
+    [
+      Markup.button.url("CEX Screen", "https://t.me/CryptoHawk_cex_bot"),
+      Markup.button.url("DEX Screen", "https://t.me/CryptoHawkDEXBot")
+    ],
+    [
+      Markup.button.url("News", "https://t.me/CryptoHawkNewsBot"),
+      Markup.button.url("Trends", "https://t.me/CryptoHawkTrendsBot")
+    ],
+    [
+      Markup.button.callback("← Back", "back_from_activate")
+    ]
   ]);
   ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
 });
 bot.action('back_from_activate', (ctx) => {
   ctx.answerCbQuery();
   showMainMenu(ctx);
-});
-// Используем answerCbQuery с URL для перехода (автоматически открывается бот)
-bot.action('activate_marketstats', (ctx) => {
-  ctx.answerCbQuery("", { url: "https://t.me/CryptoHawk_market_bot" });
-});
-bot.action('activate_onchain', (ctx) => {
-  ctx.answerCbQuery("", { url: "https://t.me/CryptoHawkOnChainBot" });
-});
-bot.action('activate_cex_screen', (ctx) => {
-  ctx.answerCbQuery("", { url: "https://t.me/CryptoHawk_cex_bot" });
-});
-bot.action('activate_dex_screen', (ctx) => {
-  ctx.answerCbQuery("", { url: "https://t.me/CryptoHawkDEXBot" });
-});
-bot.action('activate_news', (ctx) => {
-  ctx.answerCbQuery("", { url: "https://t.me/CryptoHawkNewsBot" });
-});
-bot.action('activate_trends', (ctx) => {
-  ctx.answerCbQuery("", { url: "https://t.me/CryptoHawkTrendsBot" });
 });
 
 /* --------------------------
@@ -226,12 +220,48 @@ function buildCexMenu() {
   return { reply_markup: keyboard.reply_markup };
 }
 
-// Функция формирования ярлыка toggle для CEX Screen
 function getToggleLabel(category) {
   const key = cexCategoryMapping[category];
   const setting = cexSettings[key] || { active: false };
   return setting.active ? `✅${category}` : `❌${category}`;
 }
+
+bot.action('back_from_cex', (ctx) => {
+  ctx.answerCbQuery();
+  showMainMenu(ctx);
+});
+
+// Toggle callbacks для CEX Screen
+bot.action('cex_toggle_flow_alerts', (ctx) => {
+  cexSettings.flowAlerts.active = !cexSettings.flowAlerts.active;
+  ctx.answerCbQuery(`Flow Alerts now ${cexSettings.flowAlerts.active ? 'ENABLED' : 'DISABLED'}`);
+  showCexScreenMenu(ctx);
+});
+bot.action('cex_toggle_cex_tracking', (ctx) => {
+  cexSettings.cexTracking.active = !cexSettings.cexTracking.active;
+  ctx.answerCbQuery(`CEX Tracking now ${cexSettings.cexTracking.active ? 'ENABLED' : 'DISABLED'}`);
+  showCexScreenMenu(ctx);
+});
+bot.action('cex_toggle_all_spot', (ctx) => {
+  cexSettings.allSpot.active = !cexSettings.allSpot.active;
+  ctx.answerCbQuery(`All Spot now ${cexSettings.allSpot.active ? 'ENABLED' : 'DISABLED'}`);
+  showCexScreenMenu(ctx);
+});
+bot.action('cex_toggle_all_derivatives', (ctx) => {
+  cexSettings.allDerivatives.active = !cexSettings.allDerivatives.active;
+  ctx.answerCbQuery(`All Derivatives now ${cexSettings.allDerivatives.active ? 'ENABLED' : 'DISABLED'}`);
+  showCexScreenMenu(ctx);
+});
+bot.action('cex_toggle_all_spot_percent', (ctx) => {
+  cexSettings.allSpotPercent.active = !cexSettings.allSpotPercent.active;
+  ctx.answerCbQuery(`All Spot% now ${cexSettings.allSpotPercent.active ? 'ENABLED' : 'DISABLED'}`);
+  showCexScreenMenu(ctx);
+});
+bot.action('cex_toggle_all_derivatives_percent', (ctx) => {
+  cexSettings.allDerivativesPercent.active = !cexSettings.allDerivativesPercent.active;
+  ctx.answerCbQuery(`All Derivatives% now ${cexSettings.allDerivativesPercent.active ? 'ENABLED' : 'DISABLED'}`);
+  showCexScreenMenu(ctx);
+});
 
 /* --------------------------
    MARKETSTATS МЕНЮ
@@ -338,18 +368,9 @@ bot.action('toggle_bitcoin_dominance', (ctx) => {
   showMarketStatsMenu(ctx);
 });
 
-// Функция для создания кнопки "← Back" в фильтровых подменю
-function backButton() {
-  return Markup.button.callback("← Back", "cex_back_to_menu");
-}
-
-// Callback для "← Back" во всех фильтровых подменю CEX Screen
-bot.action('cex_back_to_menu', (ctx) => {
-  ctx.answerCbQuery();
-  showCexScreenMenu(ctx);
-});
-
-// Сброс вебхука и запуск бота
+/* --------------------------
+   Запуск бота
+-------------------------- */
 bot.launch()
   .then(() => bot.telegram.setWebhook(''))
   .then(() => {
