@@ -14,7 +14,7 @@ const {
 class CEXEventBus extends EventEmitter {}
 const cexEventBus = new CEXEventBus();
 
-// Загрузка шаблонов уведомлений для CEX из файла templates.json
+// Загрузка шаблонов уведомлений
 let templates = {};
 try {
   const templatePath = path.join(__dirname, 'templates.json');
@@ -24,11 +24,9 @@ try {
   logger.error(`CEX Module: Error reading templates: ${err.message}`);
 }
 
-// Механизм объединения событий: если два события с одинаковыми метриками (по name и metrics) приходят в течение 30 секунд, объединяем их.
 const mergedEvents = {};
-const mergeThreshold = 30 * 1000;
+const mergeThreshold = 30 * 1000; // 30 секунд
 
-// Функция для подстановки шаблона
 function applyTemplate(templateObj, data) {
   let message = `${templateObj.title}\n\n${templateObj.message}`;
   templateObj.parameters.forEach((param) => {
@@ -38,16 +36,14 @@ function applyTemplate(templateObj, data) {
   return message;
 }
 
-// Формируем уведомление на основе шаблона и данных события
 function formatNotification(eventObj) {
   const { data } = eventObj;
-  // event_type определяет тип уведомления, если не задан, используем "large_inflow_outflow" как дефолт
+  // Если event_type не указан, по умолчанию используем large_inflow_outflow
   const eventType = data.event_type || 'large_inflow_outflow';
   const chosen = templates[eventType];
   if (!chosen) {
     return { message: `CEX Event: ${data.event}\n${JSON.stringify(data, null, 2)}` };
   }
-  // Формируем данные для подстановки
   const templateData = {
     asset: data.asset || 'N/A',
     event: data.event || 'N/A',
@@ -64,15 +60,14 @@ function formatNotification(eventObj) {
     open_interest: data.open_interest || 'N/A',
     volatility: data.volatility || 'N/A',
     previous_time: data.previous_time || 'N/A',
-    previous_text: data.previous_text || 'N/A'
+    previous_text: data.previous_text || 'N/A',
+    deltaPercent: data.deltaPercent || 'N/A'
   };
   return { message: applyTemplate(chosen, templateData) };
 }
 
-// Основная функция обработки события
 function processCEXEvent(eventData) {
-  // eventData.category должно содержать одну из следующих строк:
-  // 'flow_alerts', 'cex_tracking', 'all_spot', 'all_derivatives', 'all_spot_percent', 'all_derivatives_percent'
+  // category – одна из: flow_alerts, cex_tracking, all_spot, all_derivatives, all_spot_percent, all_derivatives_percent
   const category = eventData.category;
   let passFilter = false;
   switch (category) {
@@ -95,7 +90,7 @@ function processCEXEvent(eventData) {
       passFilter = evaluateAllDerivativesPercent(eventData, eventData.settings || {});
       break;
     default:
-      logger.info(`CEX: Unknown category "${category}" - event filtered out.`);
+      logger.info(`CEX: Unknown category "${category}". Event filtered out.`);
       return;
   }
 
@@ -104,7 +99,6 @@ function processCEXEvent(eventData) {
     return;
   }
 
-  // Объединяем события с одинаковыми ключами (по event и metrics)
   const key = JSON.stringify({ event: eventData.event, metrics: eventData.metrics });
   const now = Date.now();
   if (mergedEvents[key] && (now - mergedEvents[key].timestamp < mergeThreshold)) {
