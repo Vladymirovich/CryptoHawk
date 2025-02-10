@@ -1,14 +1,15 @@
-// MarketStats/poller.js
 const { fetchCoinMarketCapData } = require('../api/coinmarketcap');
 const { processMarketStatsEvent } = require('./events');
 const logger = require('../logs/apiLogger');
 
-// Пуллинг каждые 60 секунд (60000 мс)
+// Замените на URL вашего placeholder изображения, если требуется
+const DEFAULT_GRAPH_URL = 'https://via.placeholder.com/150';
+
 setInterval(async () => {
   const coins = await fetchCoinMarketCapData();
   if (coins && coins.length > 0) {
     coins.forEach(coin => {
-      // Пример: формируем событие "crypto_market_cap" для каждого монеты
+      // Пример формирования события для "crypto_market_cap"
       const eventData = {
         type: 'crypto_market_cap',
         asset: coin.symbol,
@@ -16,24 +17,24 @@ setInterval(async () => {
         value: coin.quote.USD.market_cap,
         change: coin.quote.USD.percent_change_24h,
         period: '1min',
-        // Здесь предполагаем, что coin.logo содержит URL графика/логотипа
-        graph_url: coin.logo ? coin.logo : 'N/A',
+        // Если API не возвращает логотип, используем placeholder
+        graph_url: coin.logo ? coin.logo : DEFAULT_GRAPH_URL,
         timestamp: Date.now(),
         settings: { active: true }
       };
       processMarketStatsEvent(eventData);
 
-      // Дополнительно можно формировать события для других типов, если данные доступны
-      // Например, для "eth_gas" можно проверять, если coin.symbol === 'ETH'
+      // Можно добавить дополнительные события, например для ETH Gas,
+      // если такие данные доступны в API (это лишь пример)
       if (coin.symbol === 'ETH') {
         const ethEvent = {
           type: 'eth_gas',
           asset: coin.symbol,
           event: 'ETH Gas Update',
-          value: coin.quote.USD.price,  // заменить на реальное значение, если API предоставляет
+          value: coin.quote.USD.price, // здесь заменить на реальное значение, если доступно
           change: coin.quote.USD.percent_change_24h,
           period: '1min',
-          graph_url: coin.logo ? coin.logo : 'N/A',
+          graph_url: coin.logo ? coin.logo : DEFAULT_GRAPH_URL,
           timestamp: Date.now(),
           settings: { active: true }
         };
