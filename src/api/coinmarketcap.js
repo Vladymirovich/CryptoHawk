@@ -5,7 +5,7 @@ const { COINMARKETCAP_API_KEY } = process.env;
 
 async function fetchCoinMarketCapData() {
   // Пример запроса: получаем топ-10 монет
-  const url = 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?limit=10';
+  const url = 'https://pro-api.coinmarketcap.com/v1/global-metrics/quotes/latest';
   const options = {
     headers: {
       'X-CMC_PRO_API_KEY': COINMARKETCAP_API_KEY,
