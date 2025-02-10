@@ -1,5 +1,3 @@
-// MarketStats/events.js
-
 const EventEmitter = require('events');
 const logger = require('../logs/apiLogger');
 const fs = require('fs');
@@ -9,7 +7,7 @@ const { evaluateOpenInterest, evaluateTopFunding, evaluateGenericMarketStat } = 
 class MarketStatsEventBus extends EventEmitter {}
 const marketStatsEventBus = new MarketStatsEventBus();
 
-// Загрузка шаблонов уведомлений
+// Загрузка шаблонов уведомлений из templates.json
 let templates = {};
 try {
   const templatePath = path.join(__dirname, 'templates.json');
@@ -44,9 +42,10 @@ function formatNotification(eventObj) {
     value: data.value || 'N/A',
     change: data.change || 'N/A',
     period: data.period || 'N/A',
+    graph_url: data.graph_url || 'N/A',
     additionalInfo: data.additionalInfo || ''
   };
-  return { message: applyTemplate(chosen, templateData) };
+  return { message: applyTemplate(chosen, templateData), graph_url: templateData.graph_url };
 }
 
 function processMarketStatsEvent(eventData) {
