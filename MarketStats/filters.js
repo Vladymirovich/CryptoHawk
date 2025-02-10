@@ -1,7 +1,7 @@
 // MarketStats/filters.js
 
 /**
- * Фильтр для Open Interest (OI) / Top OI.
+ * Фильтр для Open Interest / Top OI.
  * settings: {
  *   active: boolean,
  *   mode: "gainers" | "losers" | "both",
@@ -63,7 +63,7 @@ function evaluateTopFunding(eventData, settings) {
 }
 
 /**
- * Универсальный фильтр для остальных MarketStats событий.
+ * Универсальный фильтр для остальных событий.
  * settings: { active: boolean }
  */
 function evaluateGenericMarketStat(eventData, settings) {
