@@ -15,7 +15,7 @@ try {
 }
 
 // Используем переменную TELEGRAM_BOSS_BOT_TOKEN (для @CryptoHawk_boss_bot)
-const bot = new Telegraf(process.env.TELEGRAM_BOSS_BOT_TOKEN);
+const bot = new Telegraf(process.env.TELEGRAM_ADMIN_BOT_TOKEN);
 
 // White-list middleware
 bot.use((ctx, next) => {
