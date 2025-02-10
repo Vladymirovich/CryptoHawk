@@ -3,7 +3,7 @@ const { Telegraf } = require('telegraf');
 const marketStatsEventBus = require('../MarketStats/events');
 const logger = require('../logs/apiLogger');
 
-// Запускаем поллер, чтобы получать данные
+// Запускаем пуллер, который будет опрашивать CoinMarketCap API
 require('../MarketStats/poller');
 
 const marketBot = new Telegraf(process.env.TELEGRAM_MARKET_BOT_TOKEN);
@@ -17,6 +17,7 @@ marketBot.start((ctx) => {
   });
 });
 
+// Команда /start отправляет сообщение о том, что бот активен
 marketBot.command('start', (ctx) => {
   chatId = ctx.chat.id;
   ctx.reply('Market Stats Bot is active. You will receive notifications soon.');
@@ -31,7 +32,6 @@ marketStatsEventBus.on('notification', async (notification) => {
     logger.info('MarketStats Bot: Chat ID is not set yet.');
     return;
   }
-  // Если уведомление содержит graph_url и он действительный, отправляем фото
   if (notification.graph_url && notification.graph_url !== 'N/A') {
     try {
       await marketBot.telegram.sendPhoto(chatId, notification.graph_url, { caption: notification.message, parse_mode: 'Markdown' });
