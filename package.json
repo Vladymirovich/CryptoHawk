@@ -6,6 +6,7 @@
   "scripts": {
     "start:admin": "node bots/adminBot.js",
     "start:cex": "node bots/cexBot.js",
+    "start:marketStatsBot": "bots/marketStatsBot.js",
     "webhook": "node src/webhookServer.js",
     "test": "echo \"No tests yet\""
   },
