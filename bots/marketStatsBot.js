@@ -1,5 +1,3 @@
-// bots/marketStatsBot.js
-
 require('dotenv').config({ path: __dirname + '/../config/.env' });
 const { Telegraf } = require('telegraf');
 const marketStatsEventBus = require('../MarketStats/events');
@@ -18,14 +16,27 @@ marketBot.help((ctx) => {
   ctx.reply('This bot sends Market Stats notifications.');
 });
 
-marketStatsEventBus.on('notification', (notification) => {
+marketStatsEventBus.on('notification', async (notification) => {
   if (!chatId) {
     logger.info('MarketStats Bot: Chat ID is not set yet.');
     return;
   }
-  marketBot.telegram.sendMessage(chatId, notification.message, { parse_mode: 'Markdown' })
-    .then(() => logger.info('MarketStats Bot: Notification sent successfully.'))
-    .catch((err) => logger.error(`MarketStats Bot error: ${err.message}`));
+  
+  // Если уведомление содержит graph_url, отправляем картинку отдельно
+  if (notification.graph_url && notification.graph_url !== 'N/A') {
+    try {
+      await marketBot.telegram.sendPhoto(chatId, notification.graph_url, { caption: notification.message, parse_mode: 'Markdown' });
+      logger.info('MarketStats Bot: Notification with photo sent successfully.');
+    } catch (err) {
+      logger.error(`MarketStats Bot error sending photo: ${err.message}`);
+      // Если отправка фото не удалась, отправляем текстовое уведомление
+      await marketBot.telegram.sendMessage(chatId, notification.message, { parse_mode: 'Markdown' });
+    }
+  } else {
+    marketBot.telegram.sendMessage(chatId, notification.message, { parse_mode: 'Markdown' })
+      .then(() => logger.info('MarketStats Bot: Notification sent successfully.'))
+      .catch((err) => logger.error(`MarketStats Bot error: ${err.message}`));
+  }
 });
 
 marketBot.launch()
