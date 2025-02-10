@@ -1,3 +1,5 @@
+// bots/adminBot.js
+
 require('dotenv').config({ path: __dirname + '/../config/.env' });
 const { Telegraf, Markup } = require('telegraf');
 const fs = require('fs');
@@ -14,7 +16,8 @@ try {
   logger.error(`Error reading admins.json: ${err.message}`);
 }
 
-const bot = new Telegraf(process.env.TELEGRAM_ADMIN_BOT_TOKEN);
+// Используем переменную TELEGRAM_BOSS_BOT_TOKEN (для @CryptoHawk_boss_bot)
+const bot = new Telegraf(process.env.TELEGRAM_BOSS_BOT_TOKEN);
 
 // White-list middleware
 bot.use((ctx, next) => {
@@ -25,17 +28,21 @@ bot.use((ctx, next) => {
   return next();
 });
 
-// In-memory настройки для CEX Screen (по умолчанию все отключены)
+/* --------------------------
+   IN-MEMORY НАСТРОЙКИ
+-------------------------- */
+
+// Настройки для CEX Screen (toggle-меню)
 const cexSettings = {
-  flowAlerts: { active: false, favoriteCoins: [], unwantedCoins: [], autoTrack: false },
-  cexTracking: { active: false, favoriteCoins: [], unwantedCoins: [], rate5: false, rate10: false, rate60: false, activate: false, autoTrack: false },
-  allSpot: { active: false, filters: { period: [], buy: false, sell: false } },
-  allDerivatives: { active: false, filters: { period: [], buy: false, sell: false } },
-  allSpotPercent: { active: false, filters: { period: [], buy: false, sell: false } },
-  allDerivativesPercent: { active: false, filters: { period: [], buy: false, sell: false } }
+  flowAlerts: { active: false },
+  cexTracking: { active: false },
+  allSpot: { active: false },
+  allDerivatives: { active: false },
+  allSpotPercent: { active: false },
+  allDerivativesPercent: { active: false }
 };
 
-// In-memory настройки для MarketStats (по умолчанию все отключены)
+// Настройки для MarketStats (toggle-меню)
 const marketStatsSettings = {
   open_interest: { active: false },
   top_oi: { active: false },
@@ -72,7 +79,9 @@ const marketStatsCategoryMapping = {
   "Bitcoin Dominance": "bitcoin_dominance"
 };
 
-// Главное меню как inline-сообщение с кнопками по две в строке
+/* --------------------------
+   ГЛАВНОЕ МЕНЮ (INLINE)
+-------------------------- */
 function showMainMenu(ctx) {
   const text = "Welcome to CryptoHawk Admin Bot!\nSelect an option:";
   const keyboard = Markup.inlineKeyboard([
@@ -84,7 +93,6 @@ function showMainMenu(ctx) {
   ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
 }
 
-// Обработчик для /start
 bot.start((ctx) => {
   ctx.reply("Welcome to CryptoHawk Admin Bot!\nSelect an option:", {
     reply_markup: Markup.inlineKeyboard([
@@ -96,14 +104,14 @@ bot.start((ctx) => {
   });
 });
 
-// Главные меню
+// Главные пункты меню
 bot.action('menu_marketstats', (ctx) => {
   ctx.answerCbQuery();
   showMarketStatsMenu(ctx);
 });
 bot.action('menu_onchain', (ctx) => {
   ctx.answerCbQuery();
-  ctx.editMessageText("OnChain settings are under development.\nReturning to main menu...");
+  ctx.editMessageText("OnChain settings are under development.\nReturning to main menu...", { reply_markup: {} });
   setTimeout(() => showMainMenu(ctx), 2000);
 });
 bot.action('menu_cex_screen', (ctx) => {
@@ -112,44 +120,35 @@ bot.action('menu_cex_screen', (ctx) => {
 });
 bot.action('menu_dex_screen', (ctx) => {
   ctx.answerCbQuery();
-  ctx.editMessageText("DEX Screen settings are under development.\nReturning to main menu...");
+  ctx.editMessageText("DEX Screen settings are under development.\nReturning to main menu...", { reply_markup: {} });
   setTimeout(() => showMainMenu(ctx), 2000);
 });
 bot.action('menu_news', (ctx) => {
   ctx.answerCbQuery();
-  ctx.editMessageText("News settings are under development.\nReturning to main menu...");
+  ctx.editMessageText("News settings are under development.\nReturning to main menu...", { reply_markup: {} });
   setTimeout(() => showMainMenu(ctx), 2000);
 });
 bot.action('menu_trends', (ctx) => {
   ctx.answerCbQuery();
-  ctx.editMessageText("Trends settings are under development.\nReturning to main menu...");
+  ctx.editMessageText("Trends settings are under development.\nReturning to main menu...", { reply_markup: {} });
   setTimeout(() => showMainMenu(ctx), 2000);
 });
 bot.action('menu_status', (ctx) => {
   ctx.answerCbQuery();
-  ctx.editMessageText("All systems are running normally.\nReturning to main menu...");
+  ctx.editMessageText("All systems are running normally.\nReturning to main menu...", { reply_markup: {} });
   setTimeout(() => showMainMenu(ctx), 2000);
 });
 
-// Обработчик для "Activate Bots" – inline меню с deep‑links
+/* --------------------------
+   ACTIVATE BOTS МЕНЮ
+-------------------------- */
 bot.action('menu_activate_bots', (ctx) => {
   const text = "Activate Bots:\nSelect a bot to activate:";
   const keyboard = Markup.inlineKeyboard([
-    [
-      Markup.button.callback("MarketStats", "activate_marketstats"),
-      Markup.button.callback("OnChain", "activate_onchain")
-    ],
-    [
-      Markup.button.callback("CEX Screen", "activate_cex_screen"),
-      Markup.button.callback("DEX Screen", "activate_dex_screen")
-    ],
-    [
-      Markup.button.callback("News", "activate_news"),
-      Markup.button.callback("Trends", "activate_trends")
-    ],
-    [
-      Markup.button.callback("← Back", "back_from_activate")
-    ]
+    [Markup.button.callback("MarketStats", "activate_marketstats"), Markup.button.callback("OnChain", "activate_onchain")],
+    [Markup.button.callback("CEX Screen", "activate_cex_screen"), Markup.button.callback("DEX Screen", "activate_dex_screen")],
+    [Markup.button.callback("News", "activate_news"), Markup.button.callback("Trends", "activate_trends")],
+    [Markup.button.callback("← Back", "back_from_activate")]
   ]);
   ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
 });
@@ -157,32 +156,29 @@ bot.action('back_from_activate', (ctx) => {
   ctx.answerCbQuery();
   showMainMenu(ctx);
 });
+// Используем answerCbQuery с URL для перехода (автоматически открывается бот)
 bot.action('activate_marketstats', (ctx) => {
-  ctx.answerCbQuery();
-  ctx.editMessageText('Activate MarketStats Bot: [Click here](https://t.me/CryptoHawk_market_bot)', { parse_mode: 'Markdown' });
+  ctx.answerCbQuery("", { url: "https://t.me/CryptoHawk_market_bot" });
 });
 bot.action('activate_onchain', (ctx) => {
-  ctx.answerCbQuery();
-  ctx.editMessageText('Activate OnChain Bot: [Click here](https://t.me/CryptoHawkOnChainBot)', { parse_mode: 'Markdown' });
+  ctx.answerCbQuery("", { url: "https://t.me/CryptoHawkOnChainBot" });
 });
 bot.action('activate_cex_screen', (ctx) => {
-  ctx.answerCbQuery();
-  ctx.editMessageText('Activate CEX Screen Bot: [Click here](https://t.me/CryptoHawk_cex_bot)', { parse_mode: 'Markdown' });
+  ctx.answerCbQuery("", { url: "https://t.me/CryptoHawk_cex_bot" });
 });
 bot.action('activate_dex_screen', (ctx) => {
-  ctx.answerCbQuery();
-  ctx.editMessageText('Activate DEX Screen Bot: [Click here](https://t.me/CryptoHawkDEXBot)', { parse_mode: 'Markdown' });
+  ctx.answerCbQuery("", { url: "https://t.me/CryptoHawkDEXBot" });
 });
 bot.action('activate_news', (ctx) => {
-  ctx.answerCbQuery();
-  ctx.editMessageText('Activate News Bot: [Click here](https://t.me/CryptoHawkNewsBot)', { parse_mode: 'Markdown' });
+  ctx.answerCbQuery("", { url: "https://t.me/CryptoHawkNewsBot" });
 });
 bot.action('activate_trends', (ctx) => {
-  ctx.answerCbQuery();
-  ctx.editMessageText('Activate Trends Bot: [Click here](https://t.me/CryptoHawkTrendsBot)', { parse_mode: 'Markdown' });
+  ctx.answerCbQuery("", { url: "https://t.me/CryptoHawkTrendsBot" });
 });
 
-// ------------------- CEX Screen Меню -------------------
+/* --------------------------
+   CEX SCREEN МЕНЮ
+-------------------------- */
 bot.action('menu_cex_screen', (ctx) => {
   ctx.answerCbQuery();
   showCexScreenMenu(ctx);
@@ -202,27 +198,27 @@ function showCexScreenMenu(ctx) {
 function buildCexMenu() {
   const keyboard = Markup.inlineKeyboard([
     [
-      Markup.button.callback(getLabel("Flow Alerts"), 'cex_toggle_flow_alerts'),
+      Markup.button.callback(getToggleLabel("Flow Alerts"), 'cex_toggle_flow_alerts'),
       Markup.button.callback("Filters", 'cex_filters_flow_alerts')
     ],
     [
-      Markup.button.callback(getLabel("CEX Tracking"), 'cex_toggle_cex_tracking'),
+      Markup.button.callback(getToggleLabel("CEX Tracking"), 'cex_toggle_cex_tracking'),
       Markup.button.callback("Filters", 'cex_filters_cex_tracking')
     ],
     [
-      Markup.button.callback(getLabel("All Spot"), 'cex_toggle_all_spot'),
+      Markup.button.callback(getToggleLabel("All Spot"), 'cex_toggle_all_spot'),
       Markup.button.callback("Filters", 'cex_filters_all_spot')
     ],
     [
-      Markup.button.callback(getLabel("All Derivatives"), 'cex_toggle_all_derivatives'),
+      Markup.button.callback(getToggleLabel("All Derivatives"), 'cex_toggle_all_derivatives'),
       Markup.button.callback("Filters", 'cex_filters_all_derivatives')
     ],
     [
-      Markup.button.callback(getLabel("All Spot%"), 'cex_toggle_all_spot_percent'),
+      Markup.button.callback(getToggleLabel("All Spot%"), 'cex_toggle_all_spot_percent'),
       Markup.button.callback("Filters", 'cex_filters_all_spot_percent')
     ],
     [
-      Markup.button.callback(getLabel("All Derivatives%"), 'cex_toggle_all_derivatives_percent'),
+      Markup.button.callback(getToggleLabel("All Derivatives%"), 'cex_toggle_all_derivatives_percent'),
       Markup.button.callback("Filters", 'cex_filters_all_derivatives_percent')
     ],
     [
@@ -232,179 +228,130 @@ function buildCexMenu() {
   return { reply_markup: keyboard.reply_markup };
 }
 
-bot.action('back_from_cex', (ctx) => {
+// Функция формирования ярлыка toggle для CEX Screen
+function getToggleLabel(category) {
+  const key = cexCategoryMapping[category];
+  const setting = cexSettings[key] || { active: false };
+  return setting.active ? `✅${category}` : `❌${category}`;
+}
+
+/* --------------------------
+   MARKETSTATS МЕНЮ
+-------------------------- */
+bot.action('menu_marketstats', (ctx) => {
+  ctx.answerCbQuery();
+  showMarketStatsMenu(ctx);
+});
+
+function showMarketStatsMenu(ctx) {
+  const text = "MarketStats Settings:\nSelect an event to toggle activation:";
+  ctx.editMessageText(text, { reply_markup: buildMarketStatsMenu().reply_markup });
+}
+
+function buildMarketStatsMenu() {
+  const keyboard = Markup.inlineKeyboard([
+    [
+      Markup.button.callback(getMarketToggleLabel("Open Interest"), "toggle_open_interest"),
+      Markup.button.callback(getMarketToggleLabel("Top OI"), "toggle_top_oi")
+    ],
+    [
+      Markup.button.callback(getMarketToggleLabel("Top Funding"), "toggle_top_funding"),
+      Markup.button.callback(getMarketToggleLabel("Crypto ETFs Net Flow"), "toggle_crypto_etfs_net_flow")
+    ],
+    [
+      Markup.button.callback(getMarketToggleLabel("Crypto Market Cap"), "toggle_crypto_market_cap"),
+      Markup.button.callback(getMarketToggleLabel("CMC Fear & Greed"), "toggle_cmc_fear_greed")
+    ],
+    [
+      Markup.button.callback(getMarketToggleLabel("CMC Altcoin Season"), "toggle_cmc_altcoin_season"),
+      Markup.button.callback(getMarketToggleLabel("CMC 100 Index"), "toggle_cmc100_index")
+    ],
+    [
+      Markup.button.callback(getMarketToggleLabel("ETH Gas"), "toggle_eth_gas"),
+      Markup.button.callback(getMarketToggleLabel("Bitcoin Dominance"), "toggle_bitcoin_dominance")
+    ],
+    [
+      Markup.button.callback("← Back", "back_from_marketstats")
+    ]
+  ]);
+  return { reply_markup: keyboard.reply_markup };
+}
+
+function getMarketToggleLabel(eventName) {
+  const key = marketStatsCategoryMapping[eventName];
+  const setting = marketStatsSettings[key] || { active: false };
+  return setting.active ? `✅${eventName}` : `❌${eventName}`;
+}
+
+bot.action('back_from_marketstats', (ctx) => {
   ctx.answerCbQuery();
   showMainMenu(ctx);
 });
 
-// Toggle callbacks для CEX Screen
-bot.action('cex_toggle_flow_alerts', (ctx) => {
-  cexSettings.flowAlerts.active = !cexSettings.flowAlerts.active;
-  ctx.answerCbQuery(`Flow Alerts now ${cexSettings.flowAlerts.active ? 'ENABLED' : 'DISABLED'}`);
-  showCexScreenMenu(ctx);
+// Toggle callbacks для MarketStats
+bot.action('toggle_open_interest', (ctx) => {
+  marketStatsSettings.open_interest.active = !marketStatsSettings.open_interest.active;
+  ctx.answerCbQuery(`Open Interest now ${marketStatsSettings.open_interest.active ? 'ENABLED' : 'DISABLED'}`);
+  showMarketStatsMenu(ctx);
 });
-bot.action('cex_toggle_cex_tracking', (ctx) => {
-  cexSettings.cexTracking.active = !cexSettings.cexTracking.active;
-  ctx.answerCbQuery(`CEX Tracking now ${cexSettings.cexTracking.active ? 'ENABLED' : 'DISABLED'}`);
-  showCexScreenMenu(ctx);
+bot.action('toggle_top_oi', (ctx) => {
+  marketStatsSettings.top_oi.active = !marketStatsSettings.top_oi.active;
+  ctx.answerCbQuery(`Top OI now ${marketStatsSettings.top_oi.active ? 'ENABLED' : 'DISABLED'}`);
+  showMarketStatsMenu(ctx);
 });
-bot.action('cex_toggle_all_spot', (ctx) => {
-  cexSettings.allSpot.active = !cexSettings.allSpot.active;
-  ctx.answerCbQuery(`All Spot now ${cexSettings.allSpot.active ? 'ENABLED' : 'DISABLED'}`);
-  showCexScreenMenu(ctx);
+bot.action('toggle_top_funding', (ctx) => {
+  marketStatsSettings.top_funding.active = !marketStatsSettings.top_funding.active;
+  ctx.answerCbQuery(`Top Funding now ${marketStatsSettings.top_funding.active ? 'ENABLED' : 'DISABLED'}`);
+  showMarketStatsMenu(ctx);
 });
-bot.action('cex_toggle_all_derivatives', (ctx) => {
-  cexSettings.allDerivatives.active = !cexSettings.allDerivatives.active;
-  ctx.answerCbQuery(`All Derivatives now ${cexSettings.allDerivatives.active ? 'ENABLED' : 'DISABLED'}`);
-  showCexScreenMenu(ctx);
+bot.action('toggle_crypto_etfs_net_flow', (ctx) => {
+  marketStatsSettings.crypto_etfs_net_flow.active = !marketStatsSettings.crypto_etfs_net_flow.active;
+  ctx.answerCbQuery(`Crypto ETFs Net Flow now ${marketStatsSettings.crypto_etfs_net_flow.active ? 'ENABLED' : 'DISABLED'}`);
+  showMarketStatsMenu(ctx);
 });
-bot.action('cex_toggle_all_spot_percent', (ctx) => {
-  cexSettings.allSpotPercent.active = !cexSettings.allSpotPercent.active;
-  ctx.answerCbQuery(`All Spot% now ${cexSettings.allSpotPercent.active ? 'ENABLED' : 'DISABLED'}`);
-  showCexScreenMenu(ctx);
+bot.action('toggle_crypto_market_cap', (ctx) => {
+  marketStatsSettings.crypto_market_cap.active = !marketStatsSettings.crypto_market_cap.active;
+  ctx.answerCbQuery(`Crypto Market Cap now ${marketStatsSettings.crypto_market_cap.active ? 'ENABLED' : 'DISABLED'}`);
+  showMarketStatsMenu(ctx);
 });
-bot.action('cex_toggle_all_derivatives_percent', (ctx) => {
-  cexSettings.allDerivativesPercent.active = !cexSettings.allDerivativesPercent.active;
-  ctx.answerCbQuery(`All Derivatives% now ${cexSettings.allDerivativesPercent.active ? 'ENABLED' : 'DISABLED'}`);
-  showCexScreenMenu(ctx);
+bot.action('toggle_cmc_fear_greed', (ctx) => {
+  marketStatsSettings.cmc_fear_greed.active = !marketStatsSettings.cmc_fear_greed.active;
+  ctx.answerCbQuery(`CMC Fear & Greed now ${marketStatsSettings.cmc_fear_greed.active ? 'ENABLED' : 'DISABLED'}`);
+  showMarketStatsMenu(ctx);
 });
-
-// ------------------- Filters callbacks -------------------
-// Фильтры для Flow Alerts
-bot.action('cex_filters_flow_alerts', (ctx) => {
-  ctx.answerCbQuery();
-  const keyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('Favorite coins', 'flow_alerts_fav')],
-    [Markup.button.callback('Unwanted coins', 'flow_alerts_unw')],
-    [Markup.button.callback('AutoTrack', 'flow_alerts_auto')],
-    [backButton()]
-  ]);
-  ctx.editMessageText("Flow Alerts Filters:\nFlows Alert Tracker monitors exchange transactions. Large inflows or outflows may signal price/sentiment changes.\nSelect an option:", { reply_markup: keyboard.reply_markup });
+bot.action('toggle_cmc_altcoin_season', (ctx) => {
+  marketStatsSettings.cmc_altcoin_season.active = !marketStatsSettings.cmc_altcoin_season.active;
+  ctx.answerCbQuery(`CMC Altcoin Season now ${marketStatsSettings.cmc_altcoin_season.active ? 'ENABLED' : 'DISABLED'}`);
+  showMarketStatsMenu(ctx);
 });
-bot.action('flow_alerts_fav', (ctx) => {
-  ctx.answerCbQuery();
-  ctx.reply('Please enter your favorite coins for Flow Alerts (comma-separated):');
+bot.action('toggle_cmc100_index', (ctx) => {
+  marketStatsSettings.cmc100_index.active = !marketStatsSettings.cmc100_index.active;
+  ctx.answerCbQuery(`CMC 100 Index now ${marketStatsSettings.cmc100_index.active ? 'ENABLED' : 'DISABLED'}`);
+  showMarketStatsMenu(ctx);
 });
-bot.action('flow_alerts_unw', (ctx) => {
-  ctx.answerCbQuery();
-  ctx.reply('Please enter unwanted coins for Flow Alerts (comma-separated):');
+bot.action('toggle_eth_gas', (ctx) => {
+  marketStatsSettings.eth_gas.active = !marketStatsSettings.eth_gas.active;
+  ctx.answerCbQuery(`ETH Gas now ${marketStatsSettings.eth_gas.active ? 'ENABLED' : 'DISABLED'}`);
+  showMarketStatsMenu(ctx);
 });
-bot.action('flow_alerts_auto', (ctx) => {
-  cexSettings.flowAlerts.autoTrack = !cexSettings.flowAlerts.autoTrack;
-  ctx.answerCbQuery(`Flow Alerts AutoTrack is now ${cexSettings.flowAlerts.autoTrack ? 'ENABLED' : 'DISABLED'}`);
+bot.action('toggle_bitcoin_dominance', (ctx) => {
+  marketStatsSettings.bitcoin_dominance.active = !marketStatsSettings.bitcoin_dominance.active;
+  ctx.answerCbQuery(`Bitcoin Dominance now ${marketStatsSettings.bitcoin_dominance.active ? 'ENABLED' : 'DISABLED'}`);
+  showMarketStatsMenu(ctx);
 });
 
-// Фильтры для CEX Tracking
-bot.action('cex_filters_cex_tracking', (ctx) => {
-  ctx.answerCbQuery();
-  const keyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('Favorite coins', 'cex_tracking_fav')],
-    [Markup.button.callback('Unwanted coins', 'cex_tracking_unw')],
-    [Markup.button.callback('Rate ±5%', 'cex_tracking_rate5')],
-    [Markup.button.callback('Rate ±10%', 'cex_tracking_rate10')],
-    [Markup.button.callback('60 sec ±1%', 'cex_tracking_rate60')],
-    [Markup.button.callback('Activate', 'cex_tracking_activate')],
-    [Markup.button.callback('AutoTrack', 'cex_tracking_auto')],
-    [backButton()]
-  ]);
-  ctx.editMessageText("CEX Tracking Filters:\nIf within 15 minutes the difference between buys and sells exceeds $100K and is ≥10% of the 24h volume, you'll receive an alert.\nSelect an option:", { reply_markup: keyboard.reply_markup });
-});
-bot.action('cex_tracking_fav', (ctx) => {
-  ctx.answerCbQuery();
-  ctx.reply('Please enter favorite coins for CEX Tracking (comma-separated):');
-});
-bot.action('cex_tracking_unw', (ctx) => {
-  ctx.answerCbQuery();
-  ctx.reply('Please enter unwanted coins for CEX Tracking (comma-separated):');
-});
-bot.action('cex_tracking_rate5', (ctx) => {
-  ctx.answerCbQuery('Rate ±5% filter toggled for CEX Tracking.');
-});
-bot.action('cex_tracking_rate10', (ctx) => {
-  ctx.answerCbQuery('Rate ±10% filter toggled for CEX Tracking.');
-});
-bot.action('cex_tracking_rate60', (ctx) => {
-  ctx.answerCbQuery('60 sec ±1% filter toggled for CEX Tracking.');
-});
-bot.action('cex_tracking_activate', (ctx) => {
-  ctx.answerCbQuery('Activate filter toggled for CEX Tracking.');
-});
-bot.action('cex_tracking_auto', (ctx) => {
-  ctx.answerCbQuery('AutoTrack toggled for CEX Tracking.');
-});
-
-// Фильтры для All Spot
-bot.action('cex_filters_all_spot', (ctx) => {
-  ctx.answerCbQuery();
-  const keyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('Buy', 'all_spot_buy')],
-    [Markup.button.callback('Sell', 'all_spot_sell')],
-    [Markup.button.callback('5min', 'all_spot_5min')],
-    [Markup.button.callback('30min', 'all_spot_30min')],
-    [Markup.button.callback('60min', 'all_spot_60min')],
-    [Markup.button.callback('24hrs', 'all_spot_24hrs')],
-    [backButton()]
-  ]);
-  ctx.editMessageText("All Spot Filters:\nSelect options for period and trade type:", { reply_markup: keyboard.reply_markup });
-});
-
-// Фильтры для All Derivatives
-bot.action('cex_filters_all_derivatives', (ctx) => {
-  ctx.answerCbQuery();
-  const keyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('Buy', 'all_derivatives_buy')],
-    [Markup.button.callback('Sell', 'all_derivatives_sell')],
-    [Markup.button.callback('5min', 'all_derivatives_5min')],
-    [Markup.button.callback('30min', 'all_derivatives_30min')],
-    [Markup.button.callback('60min', 'all_derivatives_60min')],
-    [Markup.button.callback('24hrs', 'all_derivatives_24hrs')],
-    [backButton()]
-  ]);
-  ctx.editMessageText("All Derivatives Filters:\nSelect options for period and trade type:", { reply_markup: keyboard.reply_markup });
-});
-
-// Фильтры для All Spot%
-bot.action('cex_filters_all_spot_percent', (ctx) => {
-  ctx.answerCbQuery();
-  const keyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('Buy', 'all_spot_percent_buy')],
-    [Markup.button.callback('Sell', 'all_spot_percent_sell')],
-    [Markup.button.callback('5min', 'all_spot_percent_5min')],
-    [Markup.button.callback('30min', 'all_spot_percent_30min')],
-    [Markup.button.callback('60min', 'all_spot_percent_60min')],
-    [Markup.button.callback('24hrs', 'all_spot_percent_24hrs')],
-    [backButton()]
-  ]);
-  ctx.editMessageText("All Spot% Filters:\nSelect options for period and trade type:", { reply_markup: keyboard.reply_markup });
-});
-
-// Фильтры для All Derivatives%
-bot.action('cex_filters_all_derivatives_percent', (ctx) => {
-  ctx.answerCbQuery();
-  const keyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('Buy', 'all_derivatives_percent_buy')],
-    [Markup.button.callback('Sell', 'all_derivatives_percent_sell')],
-    [Markup.button.callback('5min', 'all_derivatives_percent_5min')],
-    [Markup.button.callback('30min', 'all_derivatives_percent_30min')],
-    [Markup.button.callback('60min', 'all_derivatives_percent_60min')],
-    [Markup.button.callback('24hrs', 'all_derivatives_percent_24hrs')],
-    [backButton()]
-  ]);
-  ctx.editMessageText("All Derivatives% Filters:\nSelect options for period and trade type:", { reply_markup: keyboard.reply_markup });
-});
-
-// Функция для создания кнопки "← Back"
+// Функция для создания кнопки "← Back" в фильтровых подменю
 function backButton() {
   return Markup.button.callback("← Back", "cex_back_to_menu");
 }
 
-// Callback для "← Back" во всех фильтровых подменю
+// Callback для "← Back" во всех фильтровых подменю CEX Screen
 bot.action('cex_back_to_menu', (ctx) => {
   ctx.answerCbQuery();
   showCexScreenMenu(ctx);
 });
 
-// Запуск бота: сброс вебхука и polling
+// Сброс вебхука и запуск бота
 bot.launch()
   .then(() => bot.telegram.setWebhook(''))
   .then(() => {
