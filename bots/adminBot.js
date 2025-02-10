@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: __dirname + '/../config/.env' });
 const { Telegraf, Markup } = require('telegraf');
 const fs = require('fs');
 const path = require('path');
