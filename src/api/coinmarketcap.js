@@ -3,8 +3,7 @@ require('dotenv').config({ path: __dirname + '/../../config/.env' });
 const fetch = require('node-fetch');
 const { COINMARKETCAP_API_KEY } = process.env;
 
-async function fetchCoinMarketCapData() {
-  // Пример запроса: получаем топ-10 монет
+async function fetchGlobalMetrics() {
   const url = 'https://pro-api.coinmarketcap.com/v1/global-metrics/quotes/latest';
   const options = {
     headers: {
@@ -13,7 +12,7 @@ async function fetchCoinMarketCapData() {
     }
   };
 
-  console.log("Fetching CoinMarketCap data using API key:", COINMARKETCAP_API_KEY);
+  console.log("Fetching global metrics using API key:", COINMARKETCAP_API_KEY);
 
   try {
     const res = await fetch(url, options);
@@ -21,12 +20,12 @@ async function fetchCoinMarketCapData() {
       throw new Error(`HTTP error! status: ${res.status}`);
     }
     const data = await res.json();
-    console.log("Received data from CoinMarketCap:", data.data.length, "coins");
+    console.log("Received global metrics:", data.data);
     return data.data;
   } catch (error) {
-    console.error('Error fetching CoinMarketCap data:', error);
-    return [];
+    console.error('Error fetching global metrics:', error);
+    return null;
   }
 }
 
-module.exports = { fetchCoinMarketCapData };
+module.exports = { fetchGlobalMetrics };
