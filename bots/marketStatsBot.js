@@ -1,9 +1,25 @@
+// bots/marketStatsBot.js
+
 require('dotenv').config({ path: __dirname + '/../config/.env' });
 const { Telegraf } = require('telegraf');
 const marketStatsEventBus = require('../MarketStats/events');
 const logger = require('../logs/apiLogger');
 
-// Запускаем пуллер, который будет опрашивать CoinMarketCap API
+// Объект настроек для MarketStats (все события по умолчанию отключены)
+const marketStatsSettings = {
+  open_interest: { active: false },
+  top_oi: { active: false },
+  top_funding: { active: false },
+  crypto_etfs_net_flow: { active: false },
+  crypto_market_cap: { active: false },
+  cmc_fear_greed: { active: false },
+  cmc_altcoin_season: { active: false },
+  cmc100_index: { active: false },
+  eth_gas: { active: false },
+  bitcoin_dominance: { active: false }
+};
+
+// Запускаем пуллер для MarketStats (он запустится автоматически)
 require('../MarketStats/poller');
 
 const marketBot = new Telegraf(process.env.TELEGRAM_MARKET_BOT_TOKEN);
@@ -17,7 +33,6 @@ marketBot.start((ctx) => {
   });
 });
 
-// Команда /start отправляет сообщение о том, что бот активен
 marketBot.command('start', (ctx) => {
   chatId = ctx.chat.id;
   ctx.reply('Market Stats Bot is active. You will receive notifications soon.');
