@@ -102,6 +102,29 @@ const marketStatsCategoryMapping = {
 };
 
 // ====================
+// Функция для генерации конфигурации gauge (на основе doughnut)
+// ====================
+function generateGaugeConfig(value, title) {
+  return {
+    type: 'doughnut',
+    data: {
+      datasets: [{
+        data: [value, 100 - value],
+        backgroundColor: ['#36A2EB', '#eaeaea'],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      rotation: Math.PI,
+      circumference: Math.PI,
+      cutoutPercentage: 70,
+      tooltips: { enabled: false },
+      title: { display: true, text: title }
+    }
+  };
+}
+
+// ====================
 // Функция для сбора метрик сервера и генерации графиков
 // ====================
 async function getServerMetrics() {
@@ -150,33 +173,19 @@ async function getServerMetrics() {
     diskUsageStr = `${usedGB} / ${sizeGB} GB (${diskUsagePercent}%)`;
   }
 
-  // Генерация графиков через QuickChart.io с использованием render endpoint
-  const memConfig = {
-    type: 'radialGauge',
-    data: { datasets: [{ data: [Number(usedMemPercentage)] }] },
-    options: { domain: { min: 0, max: 100 }, title: { display: true, text: 'Memory Usage (%)' } }
-  };
-  const cpuConfig = {
-    type: 'radialGauge',
-    data: { datasets: [{ data: [Number(cpuLoadPercent)] }] },
-    options: { domain: { min: 0, max: 100 }, title: { display: true, text: 'CPU Load (%)' } }
-  };
-  const netVal = (netStats && netStats.length > 0) ? Math.min((netStats[0].rx_sec + netStats[0].tx_sec) / 1024 / 10, 100).toFixed(0) : "0";
-  const netConfig = {
-    type: 'radialGauge',
-    data: { datasets: [{ data: [Number(netVal)] }] },
-    options: { domain: { min: 0, max: 100 }, title: { display: true, text: 'Network Throughput (%)' } }
-  };
-  const diskConfig = {
-    type: 'radialGauge',
-    data: { datasets: [{ data: [Number(diskUsagePercent)] }] },
-    options: { domain: { min: 0, max: 100 }, title: { display: true, text: 'Disk Usage (%)' } }
-  };
+  // Генерация графиков через QuickChart.io (используем endpoint https://quickchart.io/chart)
+  const memConfig = generateGaugeConfig(Number(usedMemPercentage), 'Memory Usage (%)');
+  const cpuConfig = generateGaugeConfig(Number(cpuLoadPercent), 'CPU Load (%)');
+  const netVal = (netStats && netStats.length > 0)
+    ? Math.min((netStats[0].rx_sec + netStats[0].tx_sec) / 1024 / 10, 100).toFixed(0)
+    : "0";
+  const netConfig = generateGaugeConfig(Number(netVal), 'Network Throughput (%)');
+  const diskConfig = generateGaugeConfig(Number(diskUsagePercent), 'Disk Usage (%)');
 
-  const memGaugeUrl = `https://quickchart.io/chart/render?c=${encodeURIComponent(JSON.stringify(memConfig))}`;
-  const cpuGaugeUrl = `https://quickchart.io/chart/render?c=${encodeURIComponent(JSON.stringify(cpuConfig))}`;
-  const netGaugeUrl = `https://quickchart.io/chart/render?c=${encodeURIComponent(JSON.stringify(netConfig))}`;
-  const diskGaugeUrl = `https://quickchart.io/chart/render?c=${encodeURIComponent(JSON.stringify(diskConfig))}`;
+  const memGaugeUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(memConfig))}`;
+  const cpuGaugeUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(cpuConfig))}`;
+  const netGaugeUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(netConfig))}`;
+  const diskGaugeUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(diskConfig))}`;
 
   return {
     responseTime,
@@ -197,7 +206,9 @@ async function getServerMetrics() {
   };
 }
 
+// ====================
 // Асинхронная функция для формирования детального отчёта о состоянии сервера
+// ====================
 async function getDetailedServerStatus() {
   try {
     const metrics = await getServerMetrics();
@@ -210,8 +221,8 @@ async function getDetailedServerStatus() {
 • **Active Users:** ${metrics.activeUsers}
 • **Processes:** ${metrics.processCount}
 • **Memory:** Total: ${metrics.totalMem} MB, 
-• **Used:** Used ${metrics.usedMem} MB, 
-• **Free:** Free ${metrics.freeMem} MB (${metrics.usedMemPercentage}%)
+   Used: ${metrics.usedMem} MB, 
+   Free: ${metrics.freeMem} MB (${metrics.usedMemPercentage}%)
 • **CPU Load:** ${metrics.cpuLoadPercent}%
 • **Disk Usage:** ${metrics.diskUsageStr}
 • **Uptime:** ${metrics.uptime}
@@ -223,7 +234,9 @@ async function getDetailedServerStatus() {
   }
 }
 
+// ====================
 // Хелпер: получить изображение по URL как Buffer с обработкой ошибки
+// ====================
 async function fetchImage(url) {
   try {
     const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
@@ -234,6 +247,20 @@ async function fetchImage(url) {
     console.error("Image fetch error:", err.message);
     throw err;
   }
+}
+
+// ====================
+// ОБРАБОТКА ГЛАВНОГО МЕНЮ
+// ====================
+function showMainMenu(ctx) {
+  const text = "Welcome to CryptoHawk Admin Bot!\nSelect an option:";
+  const keyboard = Markup.inlineKeyboard([
+    [Markup.button.callback("MarketStats", "menu_marketstats"), Markup.button.callback("OnChain", "menu_onchain")],
+    [Markup.button.callback("CEX Screen", "menu_cex_screen"), Markup.button.callback("DEX Screen", "menu_dex_screen")],
+    [Markup.button.callback("News", "menu_news"), Markup.button.callback("Trends", "menu_trends")],
+    [Markup.button.callback("Activate Bots", "menu_activate_bots"), Markup.button.callback("Status", "menu_status")]
+  ]);
+  ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
 }
 
 // ====================
@@ -257,7 +284,7 @@ bot.action('menu_status', async (ctx) => {
   await ctx.answerCbQuery();
   try {
     const { text, images } = await getDetailedServerStatus();
-    // Пытаемся получить все изображения; если хотя бы одно не удаётся, отправляем текстовый отчёт без фото
+    // Пытаемся получить все изображения; если хотя бы одно не удаётся – отправляем только текстовый отчёт
     let mediaGroup = [];
     try {
       const memBuffer = await fetchImage(images.memGaugeUrl);
@@ -274,7 +301,7 @@ bot.action('menu_status', async (ctx) => {
     } catch (imgErr) {
       console.error("Error fetching images, sending text only:", imgErr.message);
     }
-    // Отправляем текстовый отчёт с кнопкой "← Back", которая остается до ручного нажатия
+    // Отправляем текстовый отчёт с кнопкой "← Back", которая остаётся до ручного нажатия
     await ctx.reply(text, {
       parse_mode: 'Markdown',
       disable_web_page_preview: true,
