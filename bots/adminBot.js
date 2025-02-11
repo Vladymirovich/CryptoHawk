@@ -60,7 +60,7 @@ const cexSettings = {
 };
 
 // Настройки для MarketStats (по умолчанию – все отключены)
-// Добавлен флаг market_overview – его значение теперь НЕ влияет на кнопку "Status"
+// Флаг market_overview позволяет контролировать опрос глобальных метрик – при его выключении соответствующий модуль не запускается.
 const marketStatsSettings = {
   open_interest: { active: false },
   top_oi: { active: false },
@@ -75,7 +75,9 @@ const marketStatsSettings = {
   market_overview: { active: false }
 };
 
+// ====================
 // Маппинги для формирования ярлыков в меню
+// ====================
 const cexCategoryMapping = {
   "Flow Alerts": "flowAlerts",
   "CEX Tracking": "cexTracking",
@@ -100,22 +102,21 @@ const marketStatsCategoryMapping = {
 };
 
 // ====================
-// Функция для сбора системных метрик и генерации графиков
+// Функция для сбора метрик сервера и генерации графиков
 // ====================
 async function getServerMetrics() {
+  // Измеряем время отклика локального HTTP-сервера
   const port = process.env.PORT || 3000;
   const url = `http://localhost:${port}/`;
   const start = Date.now();
-  
-  // Измеряем время отклика локального сервера
   const responseTime = await new Promise((resolve, reject) => {
     http.get(url, (res) => {
       res.on('data', () => {}); // потребляем данные
       res.on('end', () => resolve(Date.now() - start));
     }).on('error', (err) => reject(err));
   });
-  
-  // Сбор метрик через systeminformation
+
+  // Сбор системных метрик через systeminformation
   const memData = await si.mem();
   const cpuLoad = await si.currentLoad();
   const fsData = await si.fsSize();
@@ -137,8 +138,8 @@ async function getServerMetrics() {
     const totalBytesPerSec = netStats[0].rx_sec + netStats[0].tx_sec;
     throughput = (totalBytesPerSec / 1024).toFixed(2) + " KB/s";
   }
-  
-  // Disk Usage – ищем раздел с точкой монтирования "/"
+
+  // Disk Usage – ищем раздел с точкой монтирования "/" (или первый раздел)
   let diskUsagePercent = "0";
   let diskUsageStr = "N/A";
   if (fsData && fsData.length > 0) {
@@ -148,8 +149,8 @@ async function getServerMetrics() {
     const sizeGB = (rootFs.size / (1024 * 1024 * 1024)).toFixed(2);
     diskUsageStr = `${usedGB} / ${sizeGB} GB (${diskUsagePercent}%)`;
   }
-  
-  // Генерация графиков через QuickChart.io – URL формируются с помощью encodeURIComponent
+
+  // Генерация графиков через QuickChart.io с использованием render endpoint
   const memConfig = {
     type: 'radialGauge',
     data: { datasets: [{ data: [Number(usedMemPercentage)] }] },
@@ -172,10 +173,10 @@ async function getServerMetrics() {
     options: { domain: { min: 0, max: 100 }, title: { display: true, text: 'Disk Usage (%)' } }
   };
 
-  const memGaugeUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(memConfig))}`;
-  const cpuGaugeUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(cpuConfig))}`;
-  const netGaugeUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(netConfig))}`;
-  const diskGaugeUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(diskConfig))}`;
+  const memGaugeUrl = `https://quickchart.io/chart/render?c=${encodeURIComponent(JSON.stringify(memConfig))}`;
+  const cpuGaugeUrl = `https://quickchart.io/chart/render?c=${encodeURIComponent(JSON.stringify(cpuConfig))}`;
+  const netGaugeUrl = `https://quickchart.io/chart/render?c=${encodeURIComponent(JSON.stringify(netConfig))}`;
+  const diskGaugeUrl = `https://quickchart.io/chart/render?c=${encodeURIComponent(JSON.stringify(diskConfig))}`;
 
   return {
     responseTime,
@@ -196,11 +197,11 @@ async function getServerMetrics() {
   };
 }
 
-// Асинхронная функция для формирования отчёта о состоянии сервера
+// Асинхронная функция для формирования детального отчёта о состоянии сервера
 async function getDetailedServerStatus() {
   try {
     const metrics = await getServerMetrics();
-    // Определяем статус системы (пример: если Response Time > 1000 ms – WARNING, иначе OK)
+    // Определяем статус системы (например, если Response Time > 1000 ms – WARNING)
     const systemStatus = metrics.responseTime > 1000 ? "WARNING" : "OK";
     const reportText = `🖥 **SystemStatus: ${systemStatus}**
 • **Response Time:** ${metrics.responseTime} ms
@@ -222,7 +223,7 @@ async function getDetailedServerStatus() {
   }
 }
 
-// Хелпер: Получение изображения по URL как Buffer с обработкой ошибки
+// Хелпер: получить изображение по URL как Buffer с обработкой ошибки
 async function fetchImage(url) {
   try {
     const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
@@ -236,7 +237,7 @@ async function fetchImage(url) {
 }
 
 // ====================
-// ОБРАБОТКА ГЛАВНОГО МЕНЮ (INLINE)
+// ОБРАБОТКА ГЛАВНОГО МЕНЮ
 // ====================
 function showMainMenu(ctx) {
   const text = "Welcome to CryptoHawk Admin Bot!\nSelect an option:";
@@ -256,7 +257,7 @@ bot.action('menu_status', async (ctx) => {
   await ctx.answerCbQuery();
   try {
     const { text, images } = await getDetailedServerStatus();
-    // Пытаемся получить изображения; если хотя бы одно не доступно, перейдем к текстовому отчёту
+    // Пытаемся получить все изображения; если хотя бы одно не удаётся, отправляем текстовый отчёт без фото
     let mediaGroup = [];
     try {
       const memBuffer = await fetchImage(images.memGaugeUrl);
@@ -273,7 +274,7 @@ bot.action('menu_status', async (ctx) => {
     } catch (imgErr) {
       console.error("Error fetching images, sending text only:", imgErr.message);
     }
-    // Отправляем текстовый отчёт с кнопкой "← Back"
+    // Отправляем текстовый отчёт с кнопкой "← Back", которая остается до ручного нажатия
     await ctx.reply(text, {
       parse_mode: 'Markdown',
       disable_web_page_preview: true,
@@ -315,14 +316,6 @@ bot.action('menu_activate_bots', (ctx) => {
     ]
   ]);
   ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
-});
-
-bot.action('activate_marketstats', (ctx) => {
-  ctx.answerCbQuery();
-  // Отправляем сообщение с уведомлением и кнопкой "Start" для MarketStats Bot
-  const activationText = "🔵 *MarketStats Bot Activation*\n\nPress the **Start** button below to launch the MarketStats Bot.";
-  const startButton = Markup.inlineKeyboard([[Markup.button.callback("Start", "marketstats_start")]]);
-  ctx.replyWithMarkdown(activationText, { reply_markup: startButton.reply_markup });
 });
 
 bot.action('back_from_activate', (ctx) => {
