@@ -12,7 +12,7 @@ const si = require('systeminformation'); // npm install systeminformation
 const logger = require('../logs/apiLogger');
 
 // ====================
-// Проверка наличия токена админ-бота
+// Проверка токена админ-бота
 // ====================
 if (!process.env.TELEGRAM_BOSS_BOT_TOKEN) {
   console.error("Error: TELEGRAM_BOSS_BOT_TOKEN is not defined in .env");
@@ -51,7 +51,7 @@ bot.use((ctx, next) => {
 // IN-MEMORY НАСТРОЙКИ
 // ====================
 
-// --- Настройки для CEX Screen (по умолчанию все отключены) ---
+// Настройки для CEX Screen (по умолчанию – все отключены)
 const cexSettings = {
   flowAlerts: { active: false },
   cexTracking: { active: false },
@@ -61,8 +61,8 @@ const cexSettings = {
   allDerivativesPercent: { active: false }
 };
 
-// --- Настройки для MarketStats (по умолчанию все отключены) ---
-// Добавлен флаг market_overview – опрос глобальных метрик выполняется только при его включении.
+// Настройки для MarketStats (по умолчанию – все отключены)
+// Флаг market_overview добавлен: событие Global Overview будет опрашиваться только при его активации.
 const marketStatsSettings = {
   open_interest: { active: false },
   top_oi: { active: false },
@@ -77,7 +77,7 @@ const marketStatsSettings = {
   market_overview: { active: false }
 };
 
-// --- Маппинги для формирования ярлыков ---
+// Маппинги для формирования ярлыков (используются для построения меню)
 const cexCategoryMapping = {
   "Flow Alerts": "flowAlerts",
   "CEX Tracking": "cexTracking",
@@ -104,50 +104,50 @@ const marketStatsCategoryMapping = {
 // ====================
 // Функция для сбора системных метрик
 // ====================
+
 async function getServerMetrics() {
   const port = process.env.PORT || 3000;
   const url = `http://localhost:${port}/`;
   const start = Date.now();
-
-  // Отправка HTTP GET-запроса для измерения времени отклика
+  // Отправляем HTTP GET-запрос для измерения времени отклика
   const responseTime = await new Promise((resolve, reject) => {
     http.get(url, (res) => {
       res.on('data', () => {}); // потребляем данные
       res.on('end', () => resolve(Date.now() - start));
     }).on('error', (err) => reject(err));
   });
-
+  
   // Сбор системных метрик через systeminformation
   const memData = await si.mem();
   const cpuLoad = await si.currentLoad();
   const fsData = await si.fsSize();
   const netStats = await si.networkStats();
   const usersData = await si.users();
-
-  // Пересчёт памяти в MB
+  
+  // Пересчет памяти в MB
   const totalMem = (memData.total / (1024 * 1024)).toFixed(2);
   const freeMem = (memData.available / (1024 * 1024)).toFixed(2);
   const usedMem = ((memData.total - memData.available) / (1024 * 1024)).toFixed(2);
   const usedMemPercentage = (((memData.total - memData.available) / memData.total) * 100).toFixed(0);
-
+  
   // CPU load – текущая нагрузка в процентах
   const cpuLoadPercent = cpuLoad.currentLoad.toFixed(2);
-
-  // Uptime
+  
+  // Uptime сервера
   const uptime = os.uptime();
   const uptimeStr = `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`;
-
-  // Throughput – рассчитываем скорость входящего и исходящего трафика (KB/s)
+  
+  // Throughput – рассчитываем скорость (KB/s) входящего и исходящего трафика
   let throughput = "0 KB/s";
   if (netStats && netStats.length > 0) {
     const totalBytesPerSec = netStats[0].rx_sec + netStats[0].tx_sec;
     throughput = (totalBytesPerSec / 1024).toFixed(2) + " KB/s";
   }
-
+  
   // Active Users – количество активных пользователей
   const activeUsers = usersData.length;
-
-  // Disk Usage – ищем файловую систему с точкой монтирования "/"
+  
+  // Disk Usage – ищем файловую систему с точкой монтирования "/" (или первую, если не найдена)
   let diskUsagePercent = "0";
   let diskUsageStr = "N/A";
   if (fsData && fsData.length > 0) {
@@ -157,14 +157,14 @@ async function getServerMetrics() {
     const sizeGB = (rootFs.size / (1024 * 1024 * 1024)).toFixed(2);
     diskUsageStr = `${usedGB} / ${sizeGB} GB (${diskUsagePercent}%)`;
   }
-
-  // Генерация динамических изображений (radialGauge) через QuickChart.io
-  const memGaugeUrl = `https://quickchart.io/chart?c={type:'radialGauge',data:{datasets:[{data:[${usedMemPercentage}]}]},options:{domain:{min:0,max:100},title:{display:true,text:'Memory Usage (%)'}}}`;
-  const cpuGaugeUrl = `https://quickchart.io/chart?c={type:'radialGauge',data:{datasets:[{data:[${cpuLoadPercent}]}]},options:{domain:{min:0,max:100},title:{display:true,text:'CPU Load (%)'}}}`;
+  
+  // Генерация динамических графиков через QuickChart.io
+  const memGaugeUrl = `https://quickchart.io/chart/render/sf?c={type:'radialGauge',data:{datasets:[{data:[${usedMemPercentage}]}]},options:{domain:{min:0,max:100},title:{display:true,text:'Memory Usage (%)'}}}`;
+  const cpuGaugeUrl = `https://quickchart.io/chart/render/sf?c={type:'radialGauge',data:{datasets:[{data:[${cpuLoadPercent}]}]},options:{domain:{min:0,max:100},title:{display:true,text:'CPU Load (%)'}}}`;
   const netVal = (netStats && netStats.length > 0) ? Math.min((netStats[0].rx_sec + netStats[0].tx_sec) / 1024 / 10, 100).toFixed(0) : "0";
-  const netGaugeUrl = `https://quickchart.io/chart?c={type:'radialGauge',data:{datasets:[{data:[${netVal}]}]},options:{domain:{min:0,max:100},title:{display:true,text:'Network Throughput (%)'}}}`;
-  const diskGaugeUrl = `https://quickchart.io/chart?c={type:'radialGauge',data:{datasets:[{data:[${diskUsagePercent}]}]},options:{domain:{min:0,max:100},title:{display:true,text:'Disk Usage (%)'}}}`;
-
+  const netGaugeUrl = `https://quickchart.io/chart/render/sf?c={type:'radialGauge',data:{datasets:[{data:[${netVal}]}]},options:{domain:{min:0,max:100},title:{display:true,text:'Network Throughput (%)'}}}`;
+  const diskGaugeUrl = `https://quickchart.io/chart/render/sf?c={type:'radialGauge',data:{datasets:[{data:[${diskUsagePercent}]}]},options:{domain:{min:0,max:100},title:{display:true,text:'Disk Usage (%)'}}}`;
+  
   return {
     responseTime,
     totalMem,
@@ -183,11 +183,11 @@ async function getServerMetrics() {
   };
 }
 
-// --- Функция для формирования подробного текстового отчёта ---
+// --- Функция для формирования подробного отчёта о состоянии сервера ---
 async function getDetailedServerStatus() {
   try {
     const metrics = await getServerMetrics();
-    return `🖥 Server Status Report:
+    return `🖥 **Server Status Report**:
 • **Response Time:** ${metrics.responseTime} ms
 • **Throughput:** ${metrics.throughput}
 • **Network Throughput:** ${metrics.throughput}
@@ -206,7 +206,7 @@ async function getDetailedServerStatus() {
 }
 
 // ====================
-// ОБРАБОТКА МЕНЮ
+// ОБРАБОТКА ГЛАВНОГО МЕНЮ
 // ====================
 
 // --- Блок: Главное меню ---
@@ -234,30 +234,15 @@ bot.start((ctx) => {
 });
 
 // --- Блок: Обработка кнопки "Status" ---
-// Используем ctx.reply (а не editMessageText) чтобы избежать ошибок редактирования
 bot.action('menu_status', async (ctx) => {
   await ctx.answerCbQuery();
   try {
-    // Получаем метрики для формирования графиков
-    const metrics = await getServerMetrics();
-    // Создаем медиагруппу с изображениями для Memory, CPU и Disk
-    const media = [];
-    if (metrics.memGaugeUrl) {
-      media.push({ type: 'photo', media: metrics.memGaugeUrl, caption: 'Memory Gauge' });
-    }
-    if (metrics.cpuGaugeUrl) {
-      media.push({ type: 'photo', media: metrics.cpuGaugeUrl, caption: 'CPU Gauge' });
-    }
-    if (metrics.diskGaugeUrl) {
-      media.push({ type: 'photo', media: metrics.diskGaugeUrl, caption: 'Disk Gauge' });
-    }
-    if (media.length > 0) {
-      await ctx.replyWithMediaGroup(media);
-    }
-    // Отправляем текстовый отчёт с кнопкой "← Back"
+    // Получаем метрики
     const statusText = await getDetailedServerStatus();
+    // Отправляем текстовый отчет с отключенной веб-превью и кнопкой "← Back"
     await ctx.reply(statusText, {
       parse_mode: 'Markdown',
+      disable_web_page_preview: true,
       reply_markup: Markup.inlineKeyboard([
         [Markup.button.callback("← Back", "back_from_status")]
       ]).reply_markup
@@ -272,21 +257,22 @@ bot.action('back_from_status', (ctx) => {
   showMainMenu(ctx);
 });
 
-// --- Блок: Обработка кнопок "Activate Bots" ---
+// --- Блок: Обработка кнопки "Activate Bots" ---
 bot.action('menu_activate_bots', (ctx) => {
   const text = "Activate Bots:\nSelect a bot to activate:";
   const keyboard = Markup.inlineKeyboard([
     [
-      Markup.button.url("MarketStats", "https://t.me/CryptoHawk_market_bot"),
-      Markup.button.url("OnChain", "https://t.me/CryptoHawkOnChainBot")
+      // Добавлены параметр ?start=start для автоматического вызова команды /start в ботах
+      Markup.button.url("MarketStats", "https://t.me/CryptoHawk_market_bot?start=start"),
+      Markup.button.url("OnChain", "https://t.me/CryptoHawkOnChainBot?start=start")
     ],
     [
-      Markup.button.url("CEX Screen", "https://t.me/CryptoHawk_cex_bot"),
-      Markup.button.url("DEX Screen", "https://t.me/CryptoHawkDEXBot")
+      Markup.button.url("CEX Screen", "https://t.me/CryptoHawk_cex_bot?start=start"),
+      Markup.button.url("DEX Screen", "https://t.me/CryptoHawkDEXBot?start=start")
     ],
     [
-      Markup.button.url("News", "https://t.me/CryptoHawkNewsBot"),
-      Markup.button.url("Trends", "https://t.me/CryptoHawkTrendsBot")
+      Markup.button.url("News", "https://t.me/CryptoHawkNewsBot?start=start"),
+      Markup.button.url("Trends", "https://t.me/CryptoHawkTrendsBot?start=start")
     ],
     [
       Markup.button.callback("← Back", "back_from_activate")
