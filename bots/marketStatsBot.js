@@ -5,7 +5,7 @@ require('../MarketStats/poller');
 
 const { Telegraf } = require('telegraf');
 const marketStatsEventBus = require('../MarketStats/events');
-const logger = console; // Для отладки используем console.log
+const logger = console;
 
 const marketBot = new Telegraf(process.env.TELEGRAM_MARKET_BOT_TOKEN);
 
