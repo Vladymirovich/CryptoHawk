@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const http = require('http');
-const si = require('systeminformation'); // убедитесь, что пакет установлен
+const si = require('systeminformation'); // убедитесь, что пакет установлен (npm install systeminformation)
 const logger = require('../logs/apiLogger');
 
 // Проверяем наличие токена админ-бота
@@ -67,7 +67,7 @@ const marketStatsSettings = {
   market_overview: { active: false }
 };
 
-// Маппинги для формирования ярлыков (эти объекты используются для построения меню)
+// Маппинги для формирования ярлыков (используются для построения меню)
 const cexCategoryMapping = {
   "Flow Alerts": "flowAlerts",
   "CEX Tracking": "cexTracking",
@@ -92,15 +92,14 @@ const marketStatsCategoryMapping = {
 };
 
 /* --------------------------
-   Функция для сбора метрик сервера
+   Функции для сбора системных метрик
 -------------------------- */
-// Эта функция измеряет время отклика локального HTTP-сервера и собирает системные метрики через systeminformation.
+// Функция для измерения времени отклика локального HTTP-сервера и сбора метрик через systeminformation
 async function getServerMetrics() {
-  // Измеряем время отклика через HTTP GET-запрос к локальному серверу.
   const port = process.env.PORT || 3000;
   const url = `http://localhost:${port}/`;
   const start = Date.now();
-  
+
   const responseTime = await new Promise((resolve, reject) => {
     http.get(url, (res) => {
       res.on('data', () => {}); // потребляем данные
@@ -111,63 +110,51 @@ async function getServerMetrics() {
       reject(err);
     });
   });
-  
-  // Сбор системных метрик через systeminformation
+
   const memData = await si.mem();
   const cpuLoad = await si.currentLoad();
   const fsData = await si.fsSize();
   const netStats = await si.networkStats();
   const usersData = await si.users();
-  
-  // Пересчет памяти в MB
+
   const totalMem = (memData.total / (1024 * 1024)).toFixed(2);
   const freeMem = (memData.available / (1024 * 1024)).toFixed(2);
-  const usedMem = (memData.total - memData.available) / (1024 * 1024);
-  const usedMemFixed = usedMem.toFixed(2);
+  const usedMem = ((memData.total - memData.available) / (1024 * 1024)).toFixed(2);
   const usedMemPercentage = (((memData.total - memData.available) / memData.total) * 100).toFixed(0);
-  
-  // CPU load – используем текущую нагрузку в процентах
+
   const cpuLoadPercent = cpuLoad.currentLoad.toFixed(2);
-  
-  // Uptime
   const uptime = os.uptime();
   const uptimeStr = `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`;
-  
-  // Throughput – рассчитываем по сумме входящих и исходящих байт в секунду (переводим в KB/s)
+
   let throughput = "0 KB/s";
   if (netStats && netStats.length > 0) {
     const totalBytesPerSec = netStats[0].rx_sec + netStats[0].tx_sec;
     throughput = (totalBytesPerSec / 1024).toFixed(2) + " KB/s";
   }
-  
-  // Active Users – количество активных пользователей (логин в системе)
+
   const activeUsers = usersData.length;
-  
-  // Disk Usage – ищем раздел с точкой монтирования "/" (если найден)
+
   let diskUsagePercent = "0";
   let diskUsageStr = "N/A";
   if (fsData && fsData.length > 0) {
     const rootFs = fsData.find(fs => fs.mount === '/') || fsData[0];
-    diskUsagePercent = rootFs.use; // процент использования
-    // Преобразуем размеры из байт в ГБ
+    diskUsagePercent = rootFs.use.toFixed(0);
     const usedGB = (rootFs.used / (1024 * 1024 * 1024)).toFixed(2);
     const sizeGB = (rootFs.size / (1024 * 1024 * 1024)).toFixed(2);
     diskUsageStr = `${usedGB} / ${sizeGB} GB (${diskUsagePercent}%)`;
   }
-  
-  // Генерация графиков через QuickChart.io – для каждого параметра
+
+  // Генерация динамических графиков через QuickChart.io
   const memGaugeUrl = `https://quickchart.io/chart?c={type:'radialGauge',data:{datasets:[{data:[${usedMemPercentage}]}]},options:{domain:{min:0,max:100},title:{display:true,text:'Memory Usage (%)'}}}`;
   const cpuGaugeUrl = `https://quickchart.io/chart?c={type:'radialGauge',data:{datasets:[{data:[${cpuLoadPercent}]}]},options:{domain:{min:0,max:100},title:{display:true,text:'CPU Load (%)'}}}`;
-  // Для сети – здесь берём полученную скорость (KB/s), нормализуем до процентов (условно, максимальное значение пусть 1000 KB/s)
-  const netVal = Math.min((netStats[0].rx_sec + netStats[0].tx_sec) / 1024 / 10, 100).toFixed(0);
+  const netVal = netStats && netStats.length > 0 ? Math.min((netStats[0].rx_sec + netStats[0].tx_sec) / 1024 / 10, 100).toFixed(0) : "0";
   const netGaugeUrl = `https://quickchart.io/chart?c={type:'radialGauge',data:{datasets:[{data:[${netVal}]}]},options:{domain:{min:0,max:100},title:{display:true,text:'Network Throughput (%)'}}}`;
-  // Для диска – используем процент использования
   const diskGaugeUrl = `https://quickchart.io/chart?c={type:'radialGauge',data:{datasets:[{data:[${diskUsagePercent}]}]},options:{domain:{min:0,max:100},title:{display:true,text:'Disk Usage (%)'}}}`;
-  
+
   return {
     responseTime,
     totalMem,
-    usedMem: usedMemFixed,
+    usedMem,
     freeMem,
     usedMemPercentage,
     cpuLoadPercent,
@@ -182,7 +169,7 @@ async function getServerMetrics() {
   };
 }
 
-// Асинхронная функция, которая формирует подробный отчёт о состоянии сервера
+// Асинхронная функция для формирования подробного отчёта о состоянии сервера
 async function getDetailedServerStatus() {
   try {
     const metrics = await getServerMetrics();
@@ -277,6 +264,7 @@ bot.action('menu_trends', (ctx) => {
 bot.action('menu_status', async (ctx) => {
   ctx.answerCbQuery();
   const statusText = await getDetailedServerStatus();
+  // Отправляем отчет со статусом и кнопкой "← Back" для возврата в главное меню
   ctx.reply(statusText, {
     parse_mode: 'Markdown',
     reply_markup: Markup.inlineKeyboard([
@@ -367,6 +355,11 @@ function getMarketToggleLabel(label) {
   return setting.active ? `✅${label}` : `❌${label}`;
 }
 
+bot.action('back_from_marketstats', (ctx) => {
+  ctx.answerCbQuery();
+  showMainMenu(ctx);
+});
+
 // Toggle callbacks для MarketStats
 bot.action('toggle_open_interest', (ctx) => {
   marketStatsSettings.open_interest.active = !marketStatsSettings.open_interest.active;
@@ -432,11 +425,6 @@ bot.action('toggle_market_overview', (ctx) => {
   marketStatsSettings.market_overview.active = !marketStatsSettings.market_overview.active;
   ctx.answerCbQuery(`Market Overview now ${marketStatsSettings.market_overview.active ? 'ENABLED' : 'DISABLED'}`);
   showMarketStatsMenu(ctx);
-});
-
-bot.action('back_from_marketstats', (ctx) => {
-  ctx.answerCbQuery();
-  showMainMenu(ctx);
 });
 
 /* --------------------------
