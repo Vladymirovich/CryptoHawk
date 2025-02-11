@@ -6,16 +6,11 @@ const PORT = process.env.PORT || 3000;
 
 console.log("Starting CryptoHawk project...");
 
-// Запускаем Admin Bot
+// Запускаем ботов (пример: adminBot и marketStatsBot)
 require('./bots/adminBot');
-
-// Запускаем MarketStats Bot
 require('./bots/marketStatsBot');
 
-// Запускаем CEX Bot
-require('./bots/cexBot');
-
-// Простейший HTTP-сервер для keep-alive (обязательно для Railway и подобных сервисов)
+// Простой HTTP-сервер для keep-alive
 app.get('/', (req, res) => {
   res.send('CryptoHawk bots are running.');
 });
