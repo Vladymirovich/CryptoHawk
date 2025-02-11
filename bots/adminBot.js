@@ -237,9 +237,9 @@ async function fetchImage(url) {
 }
 
 // ====================
-// ОБРАБОТКА ГЛАВНОГО МЕНЮ
+// ОБРАБОТКА КОМАНДЫ /start
 // ====================
-function showMainMenu(ctx) {
+bot.start((ctx) => {
   const text = "Welcome to CryptoHawk Admin Bot!\nSelect an option:";
   const keyboard = Markup.inlineKeyboard([
     [Markup.button.callback("MarketStats", "menu_marketstats"), Markup.button.callback("OnChain", "menu_onchain")],
@@ -247,8 +247,8 @@ function showMainMenu(ctx) {
     [Markup.button.callback("News", "menu_news"), Markup.button.callback("Trends", "menu_trends")],
     [Markup.button.callback("Activate Bots", "menu_activate_bots"), Markup.button.callback("Status", "menu_status")]
   ]);
-  ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
-}
+  ctx.reply(text, { reply_markup: keyboard.reply_markup });
+});
 
 // ====================
 // ОБРАБОТКА КНОПКИ "Status"
