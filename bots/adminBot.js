@@ -276,7 +276,14 @@ function showMainMenu(ctx) {
     [Markup.button.callback("News", "menu_news"), Markup.button.callback("Trends", "menu_trends")],
     [Markup.button.callback("Activate Bots", "menu_activate_bots"), Markup.button.callback("Status", "menu_status")]
   ]);
-  ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
+
+  // Если обновление пришло из callback_query (то есть сообщение редактируемое), используем editMessageText,
+  // иначе отправляем новое сообщение с помощью reply.
+  if (ctx.updateType === 'callback_query' && ctx.update.callback_query.message) {
+    return ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
+  } else {
+    return ctx.reply(text, { reply_markup: keyboard.reply_markup });
+  }
 }
 
 // ====================
