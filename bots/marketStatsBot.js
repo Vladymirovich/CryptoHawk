@@ -46,7 +46,7 @@ bot.action("start_marketstats", async (ctx) => {
     console.error("Error answering callback query:", err.message);
   }
   // Отправляем сообщение об активации уведомлений
-  await ctx.reply("MarketStats notifications activated. (Poller remains off until manually started.)");
+  await ctx.reply("MarketStats notifications activated.");
 });
 
 bot.launch()
