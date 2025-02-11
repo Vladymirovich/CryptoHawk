@@ -47,7 +47,6 @@ function formatNotification(eventObj) {
 }
 
 function processMarketStatsEvent(eventData) {
-  // Здесь можно добавить дополнительную фильтрацию, если нужно.
   let passFilter = false;
   switch (eventData.type) {
     case 'open_interest':
