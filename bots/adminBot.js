@@ -307,44 +307,42 @@ bot.action('menu_status', async (ctx) => {
   await ctx.answerCbQuery();
   try {
     const { text, images } = await getDetailedServerStatus();
-    // Инициализируем массив для хранения ID отправленных медиа-сообщений для данного чата
-    statusMediaMessages[ctx.chat.id] = [];
+    let mediaGroup = [];
     try {
-      // Получаем буферы для изображений (только Memory, CPU и Disk)
+      // Получаем изображения для Memory, CPU и Disk (для Network мы не требуем картинки)
       const memBuffer = await fetchImage(images.memGaugeUrl);
       const cpuBuffer = await fetchImage(images.cpuGaugeUrl);
       const diskBuffer = await fetchImage(images.diskGaugeUrl);
-      const mediaGroup = [
+      mediaGroup = [
         { type: 'photo', media: { source: memBuffer }, caption: 'Memory Usage' },
         { type: 'photo', media: { source: cpuBuffer }, caption: 'CPU Load' },
         { type: 'photo', media: { source: diskBuffer }, caption: 'Disk Usage' }
       ];
-      // Отправляем медиа группу и сохраняем ID отправленных сообщений
-      const sentMessages = await ctx.replyWithMediaGroup(mediaGroup);
-      statusMediaMessages[ctx.chat.id] = sentMessages.map(msg => msg.message_id);
+      // Отправляем медиа-группу и сохраняем ID отправленных сообщений для последующего удаления
+      const sentMedia = await ctx.replyWithMediaGroup(mediaGroup);
+      statusMediaMessages[ctx.chat.id] = sentMedia.map(msg => msg.message_id);
     } catch (imgErr) {
       console.error("Error fetching images, sending text only:", imgErr.message);
     }
     // Отправляем текстовый отчёт с кнопкой "← Back"
-    const sentTextMsg = await ctx.reply(text, {
+    await ctx.reply(text, {
       parse_mode: 'Markdown',
       disable_web_page_preview: true,
       reply_markup: Markup.inlineKeyboard([
         [Markup.button.callback("← Back", "back_from_status")]
-      ]).reply_markup
+      ])
     });
-    // Сохраняем ID текстового сообщения тоже (чтобы удалить его при возврате в главное меню)
-    statusMediaMessages[ctx.chat.id].push(sentTextMsg.message_id);
   } catch (err) {
     await ctx.reply(`Error retrieving server status: ${err.message}`);
   }
 });
 
 // ====================
-// ОБРАБОТКА КНОПКИ "← Back" – удаляем ранее отправленные медиа-сообщения и возвращаем главное меню
+// ОБРАБОТКА КНОПКИ "← Back"
 // ====================
 bot.action('back_from_status', async (ctx) => {
   await ctx.answerCbQuery();
+  // Удаляем ранее отправленные медиа-сообщения (если они есть)
   if (statusMediaMessages[ctx.chat.id]) {
     for (const msgId of statusMediaMessages[ctx.chat.id]) {
       try {
@@ -355,6 +353,7 @@ bot.action('back_from_status', async (ctx) => {
     }
     delete statusMediaMessages[ctx.chat.id];
   }
+  // После удаления возвращаем пользователя в главное меню
   showMainMenu(ctx);
 });
 
