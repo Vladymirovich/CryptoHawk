@@ -100,22 +100,22 @@ const marketStatsCategoryMapping = {
 };
 
 // ====================
-// Функция для сбора системных метрик с генерацией динамических графиков
+// Функция для сбора системных метрик и генерации графиков
 // ====================
+
 async function getServerMetrics() {
+  // Измеряем время отклика через HTTP GET-запрос к локальному серверу
   const port = process.env.PORT || 3000;
   const url = `http://localhost:${port}/`;
   const start = Date.now();
-  
-  // Измеряем время отклика через HTTP GET-запрос к локальному серверу
   const responseTime = await new Promise((resolve, reject) => {
     http.get(url, (res) => {
       res.on('data', () => {}); // потребляем данные
       res.on('end', () => resolve(Date.now() - start));
     }).on('error', (err) => reject(err));
   });
-  
-  // Сбор метрик через systeminformation
+
+  // Сбор системных метрик через systeminformation
   const memData = await si.mem();
   const cpuLoad = await si.currentLoad();
   const fsData = await si.fsSize();
@@ -123,23 +123,22 @@ async function getServerMetrics() {
   const usersData = await si.users();
   const procData = await si.processes();
   const processCount = procData.all;
-  
+
   const totalMem = (memData.total / (1024 * 1024)).toFixed(2);
   const freeMem = (memData.available / (1024 * 1024)).toFixed(2);
   const usedMem = ((memData.total - memData.available) / (1024 * 1024)).toFixed(2);
   const usedMemPercentage = (((memData.total - memData.available) / memData.total) * 100).toFixed(0);
   const cpuLoadPercent = cpuLoad.currentLoad.toFixed(2);
-  
   const uptime = os.uptime();
   const uptimeStr = `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`;
-  
+
   let throughput = "0 KB/s";
   if (netStats && netStats.length > 0) {
     const totalBytesPerSec = netStats[0].rx_sec + netStats[0].tx_sec;
     throughput = (totalBytesPerSec / 1024).toFixed(2) + " KB/s";
   }
-  
-  // Disk Usage – ищем точку монтирования "/"
+
+  // Disk Usage – ищем раздел с точкой монтирования "/"
   let diskUsagePercent = "0";
   let diskUsageStr = "N/A";
   if (fsData && fsData.length > 0) {
@@ -149,35 +148,35 @@ async function getServerMetrics() {
     const sizeGB = (rootFs.size / (1024 * 1024 * 1024)).toFixed(2);
     diskUsageStr = `${usedGB} / ${sizeGB} GB (${diskUsagePercent}%)`;
   }
-  
-  // Генерация графиков через QuickChart.io с URL-энкодингом
+
+  // Генерация графиков через QuickChart.io – используем endpoint без /render/sf
   const memConfig = {
     type: 'radialGauge',
-    data: { datasets: [{ data: [usedMemPercentage] }] },
+    data: { datasets: [{ data: [Number(usedMemPercentage)] }] },
     options: { domain: { min: 0, max: 100 }, title: { display: true, text: 'Memory Usage (%)' } }
   };
   const cpuConfig = {
     type: 'radialGauge',
-    data: { datasets: [{ data: [cpuLoadPercent] }] },
+    data: { datasets: [{ data: [Number(cpuLoadPercent)] }] },
     options: { domain: { min: 0, max: 100 }, title: { display: true, text: 'CPU Load (%)' } }
   };
   const netVal = (netStats && netStats.length > 0) ? Math.min((netStats[0].rx_sec + netStats[0].tx_sec) / 1024 / 10, 100).toFixed(0) : "0";
   const netConfig = {
     type: 'radialGauge',
-    data: { datasets: [{ data: [netVal] }] },
+    data: { datasets: [{ data: [Number(netVal)] }] },
     options: { domain: { min: 0, max: 100 }, title: { display: true, text: 'Network Throughput (%)' } }
   };
   const diskConfig = {
     type: 'radialGauge',
-    data: { datasets: [{ data: [diskUsagePercent] }] },
+    data: { datasets: [{ data: [Number(diskUsagePercent)] }] },
     options: { domain: { min: 0, max: 100 }, title: { display: true, text: 'Disk Usage (%)' } }
   };
 
-  const memGaugeUrl = `https://quickchart.io/chart/render/sf?c=${encodeURIComponent(JSON.stringify(memConfig))}`;
-  const cpuGaugeUrl = `https://quickchart.io/chart/render/sf?c=${encodeURIComponent(JSON.stringify(cpuConfig))}`;
-  const netGaugeUrl = `https://quickchart.io/chart/render/sf?c=${encodeURIComponent(JSON.stringify(netConfig))}`;
-  const diskGaugeUrl = `https://quickchart.io/chart/render/sf?c=${encodeURIComponent(JSON.stringify(diskConfig))}`;
-  
+  const memGaugeUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(memConfig))}`;
+  const cpuGaugeUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(cpuConfig))}`;
+  const netGaugeUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(netConfig))}`;
+  const diskGaugeUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(diskConfig))}`;
+
   return {
     responseTime,
     totalMem,
@@ -201,9 +200,8 @@ async function getServerMetrics() {
 async function getDetailedServerStatus() {
   try {
     const metrics = await getServerMetrics();
-    // Определим статус системы (если responseTime > 1000ms – warning, иначе OK)
+    // Определяем статус системы: если время ответа > 1000ms – WARNING, иначе OK
     const systemStatus = metrics.responseTime > 1000 ? "WARNING" : "OK";
-    
     const reportText = `🖥 **SystemStatus: ${systemStatus}**
 • **Response Time:** ${metrics.responseTime} ms
 • **Throughput:** ${metrics.throughput}
@@ -238,7 +236,7 @@ async function fetchImage(url) {
 // ОБРАБОТКА ГЛАВНОГО МЕНЮ
 // ====================
 
-// Блок: Главное меню
+// --- Блок: Главное меню ---
 function showMainMenu(ctx) {
   const text = "Welcome to CryptoHawk Admin Bot!\nSelect an option:";
   const keyboard = Markup.inlineKeyboard([
@@ -250,7 +248,7 @@ function showMainMenu(ctx) {
   ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
 }
 
-// Команда /start для главного меню
+// --- Команда /start для главного меню ---
 bot.start((ctx) => {
   ctx.reply("Welcome to CryptoHawk Admin Bot!\nSelect an option:", {
     reply_markup: Markup.inlineKeyboard([
@@ -267,7 +265,7 @@ bot.start((ctx) => {
 // ====================
 bot.action('menu_status', async (ctx) => {
   await ctx.answerCbQuery();
-  // Если событие "Market Overview" не активировано, не выполняем запросы
+  // Если опция "Market Overview" не активирована, не выполнять сбор статуса
   if (!marketStatsSettings.market_overview.active) {
     return ctx.reply("Market Overview is disabled. Please enable it in MarketStats menu to retrieve status.");
   }
@@ -279,7 +277,7 @@ bot.action('menu_status', async (ctx) => {
     const netBuffer = await fetchImage(images.netGaugeUrl);
     const diskBuffer = await fetchImage(images.diskGaugeUrl);
     
-    // Отправляем медиа-группу с изображениями (каждая картинка отображается сверху уведомления)
+    // Отправляем медиа-группу с изображениями (каждая картинка отображается в виде отдельного фото)
     const mediaGroup = [
       { type: 'photo', media: { source: memBuffer }, caption: 'Memory Usage' },
       { type: 'photo', media: { source: cpuBuffer }, caption: 'CPU Load' },
@@ -287,7 +285,7 @@ bot.action('menu_status', async (ctx) => {
       { type: 'photo', media: { source: diskBuffer }, caption: 'Disk Usage' }
     ];
     await ctx.replyWithMediaGroup(mediaGroup);
-    // Отправляем текстовый отчёт с кнопкой "← Back" (эта кнопка остается в уведомлении, пока пользователь её не нажмет)
+    // Отправляем текстовый отчёт с закреплённой кнопкой "← Back"
     await ctx.reply(text, {
       parse_mode: 'Markdown',
       disable_web_page_preview: true,
@@ -312,7 +310,6 @@ bot.action('menu_activate_bots', (ctx) => {
   const text = "Activate Bots:\nSelect a bot to activate:";
   const keyboard = Markup.inlineKeyboard([
     [
-      // Добавлены параметр start=START для автоматического запуска команды /start в целевом боте
       Markup.button.url("MarketStats", "https://t.me/CryptoHawk_market_bot?start=START"),
       Markup.button.url("OnChain", "https://t.me/CryptoHawkOnChainBot?start=START")
     ],
