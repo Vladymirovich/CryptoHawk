@@ -1,7 +1,10 @@
+// bots/adminBot.js
+
 require('dotenv').config({ path: __dirname + '/../config/.env' });
 const { Telegraf, Markup } = require('telegraf');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const logger = require('../logs/apiLogger');
 
 // Загрузка white-list администраторов из config/admins.json
@@ -14,7 +17,8 @@ try {
   logger.error(`Error reading admins.json: ${err.message}`);
 }
 
-const bot = new Telegraf(process.env.TELEGRAM_ADMIN_BOT_TOKEN);
+// Используем переменную TELEGRAM_BOSS_BOT_TOKEN для админ-бота
+const bot = new Telegraf(process.env.TELEGRAM_BOSS_BOT_TOKEN);
 
 // White-list middleware
 bot.use((ctx, next) => {
@@ -29,7 +33,7 @@ bot.use((ctx, next) => {
    IN-MEMORY НАСТРОЙКИ
 -------------------------- */
 
-// Настройки для CEX Screen (все по умолчанию выключены)
+// Настройки для CEX Screen (по умолчанию все отключены)
 const cexSettings = {
   flowAlerts: { active: false },
   cexTracking: { active: false },
@@ -39,7 +43,7 @@ const cexSettings = {
   allDerivativesPercent: { active: false }
 };
 
-// Настройки для MarketStats (все по умолчанию выключены)
+// Настройки для MarketStats (по умолчанию все отключены)
 const marketStatsSettings = {
   open_interest: { active: false },
   top_oi: { active: false },
@@ -91,6 +95,28 @@ function showMainMenu(ctx) {
 }
 
 /* --------------------------
+   Функция для получения статуса сервера
+-------------------------- */
+function getServerStatus() {
+  const totalMem = os.totalmem() / 1024 / 1024; // в MB
+  const freeMem = os.freemem() / 1024 / 1024; // в MB
+  const usedMem = totalMem - freeMem;
+  const load = os.loadavg(); // [1min, 5min, 15min]
+  const uptime = os.uptime(); // в секундах
+  const nodeVersion = process.version;
+
+  return `🖥 **Server Status Report**:
+• **Node.js Version:** ${nodeVersion}
+• **Uptime:** ${Math.floor(uptime / 60)} minutes
+• **Total Memory:** ${totalMem.toFixed(2)} MB
+• **Used Memory:** ${usedMem.toFixed(2)} MB
+• **Free Memory:** ${freeMem.toFixed(2)} MB
+• **Load Average (1m, 5m, 15m):** ${load.map(l => l.toFixed(2)).join(', ')}
+  
+#CryptoHawk`;
+}
+
+/* --------------------------
    ОБРАБОТЧИКИ ГЛАВНОГО МЕНЮ
 -------------------------- */
 bot.start((ctx) => {
@@ -110,7 +136,7 @@ bot.action('menu_marketstats', (ctx) => {
 });
 bot.action('menu_onchain', (ctx) => {
   ctx.answerCbQuery();
-  ctx.editMessageText("OnChain settings are under development.\nReturning to main menu...", { reply_markup: {} });
+  ctx.editMessageText("OnChain settings are under development.\nReturning to main menu...");
   setTimeout(() => showMainMenu(ctx), 2000);
 });
 bot.action('menu_cex_screen', (ctx) => {
@@ -119,29 +145,30 @@ bot.action('menu_cex_screen', (ctx) => {
 });
 bot.action('menu_dex_screen', (ctx) => {
   ctx.answerCbQuery();
-  ctx.editMessageText("DEX Screen settings are under development.\nReturning to main menu...", { reply_markup: {} });
+  ctx.editMessageText("DEX Screen settings are under development.\nReturning to main menu...");
   setTimeout(() => showMainMenu(ctx), 2000);
 });
 bot.action('menu_news', (ctx) => {
   ctx.answerCbQuery();
-  ctx.editMessageText("News settings are under development.\nReturning to main menu...", { reply_markup: {} });
+  ctx.editMessageText("News settings are under development.\nReturning to main menu...");
   setTimeout(() => showMainMenu(ctx), 2000);
 });
 bot.action('menu_trends', (ctx) => {
   ctx.answerCbQuery();
-  ctx.editMessageText("Trends settings are under development.\nReturning to main menu...", { reply_markup: {} });
+  ctx.editMessageText("Trends settings are under development.\nReturning to main menu...");
   setTimeout(() => showMainMenu(ctx), 2000);
 });
 bot.action('menu_status', (ctx) => {
   ctx.answerCbQuery();
-  ctx.editMessageText("All systems are running normally.\nReturning to main menu...", { reply_markup: {} });
-  setTimeout(() => showMainMenu(ctx), 2000);
+  const statusText = getServerStatus();
+  ctx.editMessageText(statusText, { parse_mode: 'Markdown' });
+  // Если нужно, можно добавить задержку и возврат в главное меню:
+  setTimeout(() => showMainMenu(ctx), 10000);
 });
 
 /* --------------------------
    ACTIVATE BOTS МЕНЮ
 -------------------------- */
-// Используем URL-кнопки для автоматического перехода к ботам
 bot.action('menu_activate_bots', (ctx) => {
   const text = "Activate Bots:\nSelect a bot to activate:";
   const keyboard = Markup.inlineKeyboard([
