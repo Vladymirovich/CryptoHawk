@@ -13,6 +13,7 @@ async function fetchGlobalMetrics() {
   };
 
   console.log("Fetching global metrics using API key:", COINMARKETCAP_API_KEY);
+
   try {
     const res = await fetch(url, options);
     if (!res.ok) {
