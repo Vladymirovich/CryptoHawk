@@ -109,7 +109,7 @@ function generateGaugeConfig(value, title) {
     type: 'doughnut',
     data: {
       datasets: [{
-        // Данные: [значение, оставшаяся часть до 100]
+        // Значение и оставшаяся часть до 100
         data: [value, 100 - value],
         backgroundColor: ['#36A2EB', '#555555'], // основной цвет и затемнённый оттенок
         borderColor: ['#000000', '#000000'],
@@ -117,21 +117,16 @@ function generateGaugeConfig(value, title) {
       }]
     },
     options: {
-      rotation: Math.PI,         // Отрисовка с левой стороны (полукруг)
-      circumference: Math.PI,      // Полукруговой график
-      cutoutPercentage: 70,        // Размер вырезанной центральной части (если используется Chart.js v2; в Chart.js v3 – cutout: '70%')
+      rotation: Math.PI,       // Начало отрисовки – слева
+      circumference: Math.PI,    // Полукруговой график
+      cutoutPercentage: 50,      // Увеличен процент выреза, чтобы сделать кольцо тоньше
       plugins: {
-        // Плагин для отрисовки текста внутри doughnut (предполагается, что у вас установлен плагин doughnutlabel)
+        // Плагин для отрисовки текста внутри doughnut (будет отображена только одна строка с числом и знаком '%')
         doughnutlabel: {
           labels: [
             {
               text: `${value}%`,
-              font: { size: 20, weight: 'bold' },
-              color: '#ffffff'
-            },
-            {
-              text: title,
-              font: { size: 12 },
+              font: { size: 24, weight: 'bold' },
               color: '#ffffff'
             }
           ]
@@ -139,12 +134,14 @@ function generateGaugeConfig(value, title) {
       },
       responsive: false,
       maintainAspectRatio: false,
-      backgroundColor: '#000000' // Чёрный фон
+      backgroundColor: '#333333' // Темно-серый фон
     }
   };
 }
 
-// Глобальный объект для хранения ID отправленных медиа сообщений по chat_id (если потребуется удаление изображений)
+// ====================
+// Глобальный объект для хранения ID отправленных медиа-сообщений по chat_id
+// ====================
 const statusMediaMessages = {};
 
 // ====================
@@ -201,9 +198,9 @@ async function getServerMetrics() {
   const cpuConfig = generateGaugeConfig(Number(cpuLoadPercent), 'CPU Load (%)');
   const diskConfig = generateGaugeConfig(Number(diskUsagePercent), 'Disk Usage (%)');
 
-  const memGaugeUrl = `https://quickchart.io/chart/render?c=${encodeURIComponent(JSON.stringify(memConfig))}`;
-  const cpuGaugeUrl = `https://quickchart.io/chart/render?c=${encodeURIComponent(JSON.stringify(cpuConfig))}`;
-  const diskGaugeUrl = `https://quickchart.io/chart/render?c=${encodeURIComponent(JSON.stringify(diskConfig))}`;
+  const memGaugeUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(memConfig))}&w=250&h=150`;
+  const cpuGaugeUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(cpuConfig))}&w=250&h=150`;
+  const diskGaugeUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(diskConfig))}&w=250&h=150`;
 
   return {
     responseTime,
@@ -250,6 +247,7 @@ async function getDetailedServerStatus() {
   }
 }
 
+
 // ====================
 // Хелпер: получить изображение по URL как Buffer с обработкой ошибки
 // ====================
@@ -266,7 +264,7 @@ async function fetchImage(url) {
 }
 
 // ====================
-// ОБРАБОТКА ГЛАВНОГО МЕНЮ
+// Функция для отображения главного меню
 // ====================
 function showMainMenu(ctx) {
   const text = "Welcome to CryptoHawk Admin Bot!\nSelect an option:";
@@ -276,9 +274,7 @@ function showMainMenu(ctx) {
     [Markup.button.callback("News", "menu_news"), Markup.button.callback("Trends", "menu_trends")],
     [Markup.button.callback("Activate Bots", "menu_activate_bots"), Markup.button.callback("Status", "menu_status")]
   ]);
-
-  // Если обновление пришло из callback_query (то есть сообщение редактируемое), используем editMessageText,
-  // иначе отправляем новое сообщение с помощью reply.
+  // Если сообщение пришло как callback_query, редактируем его, иначе отправляем новое
   if (ctx.updateType === 'callback_query' && ctx.update.callback_query.message) {
     return ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
   } else {
@@ -309,7 +305,7 @@ bot.action('menu_status', async (ctx) => {
     const { text, images } = await getDetailedServerStatus();
     let mediaGroup = [];
     try {
-      // Получаем изображения для Memory, CPU и Disk (для Network мы не требуем картинки)
+      // Загружаем изображения для Memory, CPU и Disk (для Network картинка не нужна)
       const memBuffer = await fetchImage(images.memGaugeUrl);
       const cpuBuffer = await fetchImage(images.cpuGaugeUrl);
       const diskBuffer = await fetchImage(images.diskGaugeUrl);
@@ -330,7 +326,7 @@ bot.action('menu_status', async (ctx) => {
       disable_web_page_preview: true,
       reply_markup: Markup.inlineKeyboard([
         [Markup.button.callback("← Back", "back_from_status")]
-      ])
+      ]).reply_markup
     });
   } catch (err) {
     await ctx.reply(`Error retrieving server status: ${err.message}`);
@@ -342,7 +338,7 @@ bot.action('menu_status', async (ctx) => {
 // ====================
 bot.action('back_from_status', async (ctx) => {
   await ctx.answerCbQuery();
-  // Удаляем ранее отправленные медиа-сообщения (если они есть)
+  // Удаляем ранее отправленные медиа-сообщения, если они существуют
   if (statusMediaMessages[ctx.chat.id]) {
     for (const msgId of statusMediaMessages[ctx.chat.id]) {
       try {
@@ -353,7 +349,7 @@ bot.action('back_from_status', async (ctx) => {
     }
     delete statusMediaMessages[ctx.chat.id];
   }
-  // После удаления возвращаем пользователя в главное меню
+  // Возвращаем пользователя в главное меню
   showMainMenu(ctx);
 });
 
