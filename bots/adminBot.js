@@ -378,7 +378,16 @@ bot.action('menu_activate_bots', (ctx) => {
       Markup.button.callback("← Back", "back_from_activate")
     ]
   ]);
-  ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
+  // Обновляем текущее сообщение подменю
+  return ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
+});
+
+// ====================
+// ОБРАБОТКА КНОПКИ "← Back" для подменю "Activate Bots"
+// ====================
+bot.action('back_from_activate', (ctx) => {
+  ctx.answerCbQuery();
+  showMainMenu(ctx);
 });
 
 // ====================
