@@ -6,11 +6,18 @@ const PORT = process.env.PORT || 3000;
 
 console.log("Starting CryptoHawk project...");
 
-// Запускаем ботов (пример: adminBot и marketStatsBot)
+// Запускаем все боты (каждый бот должен использовать уникальный Telegram-токен)
+// Admin Bot (например, bots/adminBot.js)
 require('./bots/adminBot');
+
+// MarketStats Bot (например, bots/marketStatsBot.js)
+// В этом файле должен присутствовать вызов: require('../MarketStats/poller') для запуска опроса API
 require('./bots/marketStatsBot');
 
-// Простой HTTP-сервер для keep-alive
+// Если есть и другие боты (например, CEX Bot), можно добавить:
+// require('./bots/cexBot');
+
+// Поднимаем простой HTTP-сервер для keep-alive (необходим Railway.app)
 app.get('/', (req, res) => {
   res.send('CryptoHawk bots are running.');
 });
