@@ -2,7 +2,7 @@
 require('dotenv').config({ path: __dirname + '/../config/.env' });
 const { fetchGlobalMetrics } = require('../src/api/coinmarketcap');
 const { processMarketStatsEvent } = require('./events');
-const logger = console; // Для отладки
+const logger = console;
 
 const DEFAULT_GRAPH_URL = 'https://via.placeholder.com/150';
 
@@ -65,5 +65,5 @@ async function pollData() {
 }
 
 setInterval(pollData, 60000);
-pollData();
+pollData(); // Запускаем сразу один цикл для проверки
 logger.info("MarketStats poller started.");
