@@ -5,9 +5,11 @@ const { Telegraf, Markup } = require('telegraf');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const http = require('http');
+const si = require('systeminformation'); // убедитесь, что пакет установлен
 const logger = require('../logs/apiLogger');
 
-// Проверка наличия токена админ-бота
+// Проверяем наличие токена админ-бота
 if (!process.env.TELEGRAM_BOSS_BOT_TOKEN) {
   console.error("Error: TELEGRAM_BOSS_BOT_TOKEN is not defined in .env");
   process.exit(1);
@@ -50,7 +52,7 @@ const cexSettings = {
 };
 
 // Настройки для MarketStats (по умолчанию – все отключены)
-// Добавлен флаг market_overview – опрос глобальных метрик происходит только если он включён.
+// Добавлен флаг market_overview – опрос глобальных метрик выполняется только при его включении.
 const marketStatsSettings = {
   open_interest: { active: false },
   top_oi: { active: false },
@@ -65,7 +67,7 @@ const marketStatsSettings = {
   market_overview: { active: false }
 };
 
-// Маппинги для ярлыков (используются при построении меню)
+// Маппинги для формирования ярлыков (эти объекты используются для построения меню)
 const cexCategoryMapping = {
   "Flow Alerts": "flowAlerts",
   "CEX Tracking": "cexTracking",
@@ -90,7 +92,127 @@ const marketStatsCategoryMapping = {
 };
 
 /* --------------------------
-   ГЛАВНОЕ МЕНЮ
+   Функция для сбора метрик сервера
+-------------------------- */
+// Эта функция измеряет время отклика локального HTTP-сервера и собирает системные метрики через systeminformation.
+async function getServerMetrics() {
+  // Измеряем время отклика через HTTP GET-запрос к локальному серверу.
+  const port = process.env.PORT || 3000;
+  const url = `http://localhost:${port}/`;
+  const start = Date.now();
+  
+  const responseTime = await new Promise((resolve, reject) => {
+    http.get(url, (res) => {
+      res.on('data', () => {}); // потребляем данные
+      res.on('end', () => {
+        resolve(Date.now() - start);
+      });
+    }).on('error', (err) => {
+      reject(err);
+    });
+  });
+  
+  // Сбор системных метрик через systeminformation
+  const memData = await si.mem();
+  const cpuLoad = await si.currentLoad();
+  const fsData = await si.fsSize();
+  const netStats = await si.networkStats();
+  const usersData = await si.users();
+  
+  // Пересчет памяти в MB
+  const totalMem = (memData.total / (1024 * 1024)).toFixed(2);
+  const freeMem = (memData.available / (1024 * 1024)).toFixed(2);
+  const usedMem = (memData.total - memData.available) / (1024 * 1024);
+  const usedMemFixed = usedMem.toFixed(2);
+  const usedMemPercentage = (((memData.total - memData.available) / memData.total) * 100).toFixed(0);
+  
+  // CPU load – используем текущую нагрузку в процентах
+  const cpuLoadPercent = cpuLoad.currentLoad.toFixed(2);
+  
+  // Uptime
+  const uptime = os.uptime();
+  const uptimeStr = `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`;
+  
+  // Throughput – рассчитываем по сумме входящих и исходящих байт в секунду (переводим в KB/s)
+  let throughput = "0 KB/s";
+  if (netStats && netStats.length > 0) {
+    const totalBytesPerSec = netStats[0].rx_sec + netStats[0].tx_sec;
+    throughput = (totalBytesPerSec / 1024).toFixed(2) + " KB/s";
+  }
+  
+  // Active Users – количество активных пользователей (логин в системе)
+  const activeUsers = usersData.length;
+  
+  // Disk Usage – ищем раздел с точкой монтирования "/" (если найден)
+  let diskUsagePercent = "0";
+  let diskUsageStr = "N/A";
+  if (fsData && fsData.length > 0) {
+    const rootFs = fsData.find(fs => fs.mount === '/') || fsData[0];
+    diskUsagePercent = rootFs.use; // процент использования
+    // Преобразуем размеры из байт в ГБ
+    const usedGB = (rootFs.used / (1024 * 1024 * 1024)).toFixed(2);
+    const sizeGB = (rootFs.size / (1024 * 1024 * 1024)).toFixed(2);
+    diskUsageStr = `${usedGB} / ${sizeGB} GB (${diskUsagePercent}%)`;
+  }
+  
+  // Генерация графиков через QuickChart.io – для каждого параметра
+  const memGaugeUrl = `https://quickchart.io/chart?c={type:'radialGauge',data:{datasets:[{data:[${usedMemPercentage}]}]},options:{domain:{min:0,max:100},title:{display:true,text:'Memory Usage (%)'}}}`;
+  const cpuGaugeUrl = `https://quickchart.io/chart?c={type:'radialGauge',data:{datasets:[{data:[${cpuLoadPercent}]}]},options:{domain:{min:0,max:100},title:{display:true,text:'CPU Load (%)'}}}`;
+  // Для сети – здесь берём полученную скорость (KB/s), нормализуем до процентов (условно, максимальное значение пусть 1000 KB/s)
+  const netVal = Math.min((netStats[0].rx_sec + netStats[0].tx_sec) / 1024 / 10, 100).toFixed(0);
+  const netGaugeUrl = `https://quickchart.io/chart?c={type:'radialGauge',data:{datasets:[{data:[${netVal}]}]},options:{domain:{min:0,max:100},title:{display:true,text:'Network Throughput (%)'}}}`;
+  // Для диска – используем процент использования
+  const diskGaugeUrl = `https://quickchart.io/chart?c={type:'radialGauge',data:{datasets:[{data:[${diskUsagePercent}]}]},options:{domain:{min:0,max:100},title:{display:true,text:'Disk Usage (%)'}}}`;
+  
+  return {
+    responseTime,
+    totalMem,
+    usedMem: usedMemFixed,
+    freeMem,
+    usedMemPercentage,
+    cpuLoadPercent,
+    uptime: uptimeStr,
+    throughput,
+    activeUsers,
+    diskUsageStr,
+    memGaugeUrl,
+    cpuGaugeUrl,
+    netGaugeUrl,
+    diskGaugeUrl
+  };
+}
+
+// Асинхронная функция, которая формирует подробный отчёт о состоянии сервера
+async function getDetailedServerStatus() {
+  try {
+    const metrics = await getServerMetrics();
+    return `🖥 **Server Status Report**:
+• **Response Time:** ${metrics.responseTime} ms
+• **Throughput:** ${metrics.throughput}
+• **Active Users:** ${metrics.activeUsers}
+
+• **Memory:** Total: ${metrics.totalMem} MB, Used: ${metrics.usedMem} MB, Free: ${metrics.freeMem} MB (${metrics.usedMemPercentage}%)
+   [Memory Gauge](${metrics.memGaugeUrl})
+
+• **CPU Load:** ${metrics.cpuLoadPercent}%
+   [CPU Gauge](${metrics.cpuGaugeUrl})
+
+• **Network Throughput:** ${metrics.throughput}
+   [Network Gauge](${metrics.netGaugeUrl})
+
+• **Disk Usage:** ${metrics.diskUsageStr}
+   [Disk Gauge](${metrics.diskGaugeUrl})
+
+• **Uptime:** ${metrics.uptime}
+
+#CryptoHawk`;
+  } catch (err) {
+    return `Error retrieving server metrics: ${err.message}`;
+  }
+}
+
+/* --------------------------
+   ГЛАВНОЕ МЕНЮ (INLINE)
 -------------------------- */
 function showMainMenu(ctx) {
   const text = "Welcome to CryptoHawk Admin Bot!\nSelect an option:";
@@ -101,34 +223,6 @@ function showMainMenu(ctx) {
     [Markup.button.callback("Activate Bots", "menu_activate_bots"), Markup.button.callback("Status", "menu_status")]
   ]);
   ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
-}
-
-/* --------------------------
-   Функция получения статуса сервера
--------------------------- */
-function getServerStatus() {
-  const totalMem = os.totalmem() / 1024 / 1024;
-  const freeMem = os.freemem() / 1024 / 1024;
-  const usedMem = totalMem - freeMem;
-  const load = os.loadavg();
-  const uptime = os.uptime();
-  const nodeVersion = process.version;
-  // Здесь можно добавить дополнительную информацию по коннекторам API и вебхукам, если доступно
-  const apiStatus = "All API connectors are active.";
-  const webhookStatus = "All webhooks are active.";
-  
-  return `🖥 **Server Status Report**:
-• **Node.js Version:** ${nodeVersion}
-• **Uptime:** ${Math.floor(uptime / 60)} minutes
-• **Total Memory:** ${totalMem.toFixed(2)} MB
-• **Used Memory:** ${usedMem.toFixed(2)} MB
-• **Free Memory:** ${freeMem.toFixed(2)} MB
-• **Load Average (1m, 5m, 15m):** ${load.map(l => l.toFixed(2)).join(', ')}
-
-• **API Status:** ${apiStatus}
-• **Webhook Status:** ${webhookStatus}
-
-#CryptoHawk`;
 }
 
 /* --------------------------
@@ -180,11 +274,20 @@ bot.action('menu_trends', (ctx) => {
   setTimeout(() => showMainMenu(ctx), 2000);
 });
 
-bot.action('menu_status', (ctx) => {
+bot.action('menu_status', async (ctx) => {
   ctx.answerCbQuery();
-  const statusText = getServerStatus();
-  ctx.editMessageText(statusText, { parse_mode: 'Markdown' });
-  setTimeout(() => showMainMenu(ctx), 10000);
+  const statusText = await getDetailedServerStatus();
+  ctx.reply(statusText, {
+    parse_mode: 'Markdown',
+    reply_markup: Markup.inlineKeyboard([
+      [Markup.button.callback("← Back", "back_from_status")]
+    ]).reply_markup
+  });
+});
+
+bot.action('back_from_status', (ctx) => {
+  ctx.answerCbQuery();
+  showMainMenu(ctx);
 });
 
 /* --------------------------
@@ -211,6 +314,7 @@ bot.action('menu_activate_bots', (ctx) => {
   ]);
   ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
 });
+
 bot.action('back_from_activate', (ctx) => {
   ctx.answerCbQuery();
   showMainMenu(ctx);
@@ -228,7 +332,26 @@ function showMarketStatsMenu(ctx) {
   const text = "MarketStats Settings:\nToggle market events:";
   const keyboard = Markup.inlineKeyboard([
     [
-      Markup.button.callback(getMarketToggleLabel("MarketStats"), "toggle_marketstats"),
+      Markup.button.callback(getMarketToggleLabel("Open Interest"), "toggle_open_interest"),
+      Markup.button.callback(getMarketToggleLabel("Top OI"), "toggle_top_oi")
+    ],
+    [
+      Markup.button.callback(getMarketToggleLabel("Top Funding"), "toggle_top_funding"),
+      Markup.button.callback(getMarketToggleLabel("Crypto ETFs Net Flow"), "toggle_crypto_etfs_net_flow")
+    ],
+    [
+      Markup.button.callback(getMarketToggleLabel("Crypto Market Cap"), "toggle_crypto_market_cap"),
+      Markup.button.callback(getMarketToggleLabel("CMC Fear & Greed"), "toggle_cmc_fear_greed")
+    ],
+    [
+      Markup.button.callback(getMarketToggleLabel("CMC Altcoin Season"), "toggle_cmc_altcoin_season"),
+      Markup.button.callback(getMarketToggleLabel("CMC 100 Index"), "toggle_cmc100_index")
+    ],
+    [
+      Markup.button.callback(getMarketToggleLabel("ETH Gas"), "toggle_eth_gas"),
+      Markup.button.callback(getMarketToggleLabel("Bitcoin Dominance"), "toggle_bitcoin_dominance")
+    ],
+    [
       Markup.button.callback(getMarketToggleLabel("Market Overview"), "toggle_market_overview")
     ],
     [
@@ -239,17 +362,69 @@ function showMarketStatsMenu(ctx) {
 }
 
 function getMarketToggleLabel(label) {
-  if (label === "Market Overview") {
-    return marketStatsSettings.market_overview.active ? `✅${label}` : `❌${label}`;
-  }
-  // Для общего MarketStats можно использовать активность одного из ключевых показателей (например, crypto_market_cap)
-  return marketStatsSettings.crypto_market_cap.active ? `✅${label}` : `❌${label}`;
+  const key = marketStatsCategoryMapping[label];
+  const setting = marketStatsSettings[key] || { active: false };
+  return setting.active ? `✅${label}` : `❌${label}`;
 }
 
-bot.action('toggle_marketstats', (ctx) => {
-  // Пример: переключаем активность показателя crypto_market_cap
+// Toggle callbacks для MarketStats
+bot.action('toggle_open_interest', (ctx) => {
+  marketStatsSettings.open_interest.active = !marketStatsSettings.open_interest.active;
+  ctx.answerCbQuery(`Open Interest now ${marketStatsSettings.open_interest.active ? 'ENABLED' : 'DISABLED'}`);
+  showMarketStatsMenu(ctx);
+});
+
+bot.action('toggle_top_oi', (ctx) => {
+  marketStatsSettings.top_oi.active = !marketStatsSettings.top_oi.active;
+  ctx.answerCbQuery(`Top OI now ${marketStatsSettings.top_oi.active ? 'ENABLED' : 'DISABLED'}`);
+  showMarketStatsMenu(ctx);
+});
+
+bot.action('toggle_top_funding', (ctx) => {
+  marketStatsSettings.top_funding.active = !marketStatsSettings.top_funding.active;
+  ctx.answerCbQuery(`Top Funding now ${marketStatsSettings.top_funding.active ? 'ENABLED' : 'DISABLED'}`);
+  showMarketStatsMenu(ctx);
+});
+
+bot.action('toggle_crypto_etfs_net_flow', (ctx) => {
+  marketStatsSettings.crypto_etfs_net_flow.active = !marketStatsSettings.crypto_etfs_net_flow.active;
+  ctx.answerCbQuery(`Crypto ETFs Net Flow now ${marketStatsSettings.crypto_etfs_net_flow.active ? 'ENABLED' : 'DISABLED'}`);
+  showMarketStatsMenu(ctx);
+});
+
+bot.action('toggle_crypto_market_cap', (ctx) => {
   marketStatsSettings.crypto_market_cap.active = !marketStatsSettings.crypto_market_cap.active;
-  ctx.answerCbQuery(`MarketStats events now ${marketStatsSettings.crypto_market_cap.active ? 'ENABLED' : 'DISABLED'}`);
+  ctx.answerCbQuery(`Crypto Market Cap now ${marketStatsSettings.crypto_market_cap.active ? 'ENABLED' : 'DISABLED'}`);
+  showMarketStatsMenu(ctx);
+});
+
+bot.action('toggle_cmc_fear_greed', (ctx) => {
+  marketStatsSettings.cmc_fear_greed.active = !marketStatsSettings.cmc_fear_greed.active;
+  ctx.answerCbQuery(`CMC Fear & Greed now ${marketStatsSettings.cmc_fear_greed.active ? 'ENABLED' : 'DISABLED'}`);
+  showMarketStatsMenu(ctx);
+});
+
+bot.action('toggle_cmc_altcoin_season', (ctx) => {
+  marketStatsSettings.cmc_altcoin_season.active = !marketStatsSettings.cmc_altcoin_season.active;
+  ctx.answerCbQuery(`CMC Altcoin Season now ${marketStatsSettings.cmc_altcoin_season.active ? 'ENABLED' : 'DISABLED'}`);
+  showMarketStatsMenu(ctx);
+});
+
+bot.action('toggle_cmc100_index', (ctx) => {
+  marketStatsSettings.cmc100_index.active = !marketStatsSettings.cmc100_index.active;
+  ctx.answerCbQuery(`CMC 100 Index now ${marketStatsSettings.cmc100_index.active ? 'ENABLED' : 'DISABLED'}`);
+  showMarketStatsMenu(ctx);
+});
+
+bot.action('toggle_eth_gas', (ctx) => {
+  marketStatsSettings.eth_gas.active = !marketStatsSettings.eth_gas.active;
+  ctx.answerCbQuery(`ETH Gas now ${marketStatsSettings.eth_gas.active ? 'ENABLED' : 'DISABLED'}`);
+  showMarketStatsMenu(ctx);
+});
+
+bot.action('toggle_bitcoin_dominance', (ctx) => {
+  marketStatsSettings.bitcoin_dominance.active = !marketStatsSettings.bitcoin_dominance.active;
+  ctx.answerCbQuery(`Bitcoin Dominance now ${marketStatsSettings.bitcoin_dominance.active ? 'ENABLED' : 'DISABLED'}`);
   showMarketStatsMenu(ctx);
 });
 
@@ -262,15 +437,6 @@ bot.action('toggle_market_overview', (ctx) => {
 bot.action('back_from_marketstats', (ctx) => {
   ctx.answerCbQuery();
   showMainMenu(ctx);
-});
-
-/* --------------------------
-   CEX SCREEN МЕНЮ (Заглушка)
--------------------------- */
-bot.action('menu_cex_screen', (ctx) => {
-  ctx.answerCbQuery();
-  ctx.editMessageText("CEX Screen settings are under development.\nReturning to main menu...");
-  setTimeout(() => showMainMenu(ctx), 2000);
 });
 
 /* --------------------------
