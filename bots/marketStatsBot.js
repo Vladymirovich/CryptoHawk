@@ -26,12 +26,15 @@ bot.start(async (ctx) => {
   } catch (err) {
     console.error("Error deleting /start message:", err.message);
   }
-  // Отправляем приветственное сообщение с единственной кнопкой "🟦 START"
+  // Отправляем сообщение, стилизованное как уведомление, с единственной inline‑кнопкой "🟦 START"
   await ctx.reply(
-    "Press the 🟦 START button below to activate notifications.",
-    Markup.inlineKeyboard([
-      [Markup.button.callback("🟦 START", "start_marketstats")]
-    ])
+    "🟦 <b>MarketStats Bot</b>\n\nPress the <b>🟦 START</b> button below to activate notifications.",
+    {
+      parse_mode: "HTML",
+      reply_markup: Markup.inlineKeyboard([
+        [Markup.button.callback("🟦 START", "start_marketstats")]
+      ])
+    }
   );
 });
 
@@ -40,13 +43,13 @@ bot.start(async (ctx) => {
 // ====================
 bot.action("start_marketstats", async (ctx) => {
   try {
-    // Отвечаем на callback-запрос (чтобы кнопка не висела в ожидании)
+    // Отвечаем на callback-запрос, чтобы убрать «часики» у кнопки
     await ctx.answerCbQuery();
   } catch (err) {
     console.error("Error answering callback query:", err.message);
   }
-  // Отправляем сообщение об активации уведомлений
-  await ctx.reply("MarketStats notifications activated.");
+  // Отправляем уведомление об активации (здесь можно запускать нужную логику, например, старт уведомлений)
+  await ctx.reply("MarketStats notifications activated. (Poller remains off until manually started.)");
 });
 
 bot.launch()
