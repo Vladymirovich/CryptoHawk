@@ -256,7 +256,9 @@ async function fetchImage(url) {
     const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Failed to fetch image from ${url}: ${res.status}`);
-    return await res.buffer();
+    // Используем arrayBuffer() вместо устаревшего buffer()
+    const arrayBuffer = await res.arrayBuffer();
+    return Buffer.from(arrayBuffer);
   } catch (err) {
     console.error("Image fetch error:", err.message);
     throw err;
@@ -360,8 +362,8 @@ bot.action('menu_activate_bots', (ctx) => {
   const text = "Activate Bots:\nSelect a bot to activate:";
   const keyboard = Markup.inlineKeyboard([
     [
-      // Для MarketStats используем URL-ссылку, чтобы перенаправить пользователя в соответствующий бот.
-      Markup.button.url("MarketStats", "https://t.me/CryptoHawk_market_bot"),
+      // Для MarketStats используем URL‑кнопку для перехода в соответствующий бот
+      Markup.button.url("MarketStats", "https://t.me/CryptoHawk_market_bot?start=START"),
       Markup.button.url("OnChain", "https://t.me/CryptoHawkOnChainBot?start=START")
     ],
     [
@@ -378,12 +380,6 @@ bot.action('menu_activate_bots', (ctx) => {
   ]);
   ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
 });
-
-bot.action('back_from_activate', (ctx) => {
-  ctx.answerCbQuery();
-  showMainMenu(ctx);
-});
-
 
 // ====================
 // ОБРАБОТКА ПОДМЕНЮ "MarketStats"
