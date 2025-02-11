@@ -110,19 +110,40 @@ function generateGaugeConfig(value, title) {
     data: {
       datasets: [{
         data: [value, 100 - value],
-        backgroundColor: ['#36A2EB', '#eaeaea'],
-        borderWidth: 0
+        backgroundColor: ['#36A2EB', '#555555'], // основной цвет и затемнённый оттенок
+        borderColor: ['#000000', '#000000'],
+        borderWidth: 2
       }]
     },
     options: {
       rotation: Math.PI,
       circumference: Math.PI,
       cutoutPercentage: 70,
-      tooltips: { enabled: false },
-      title: { display: true, text: title }
+      plugins: {
+        doughnutlabel: {
+          labels: [
+            {
+              text: `${value}%`,
+              font: { size: 20, weight: 'bold' },
+              color: '#ffffff'
+            },
+            {
+              text: title,
+              font: { size: 12 },
+              color: '#ffffff'
+            }
+          ]
+        }
+      },
+      responsive: false,
+      maintainAspectRatio: false,
+      backgroundColor: '#000000'
     }
   };
 }
+
+// Глобальный объект для хранения ID отправленных медиа сообщений по chat_id
+const statusMediaMessages = {};
 
 // ====================
 // Функция для сбора метрик сервера и генерации графиков
@@ -319,14 +340,30 @@ bot.action('back_from_status', (ctx) => {
   showMainMenu(ctx);
 });
 
+// При нажатии кнопки "← Back" удаляем ранее отправленные медиа-сообщения и возвращаем главное меню
+bot.action('back_from_status', async (ctx) => {
+  await ctx.answerCbQuery();
+  if (statusMediaMessages[ctx.chat.id]) {
+    for (const msgId of statusMediaMessages[ctx.chat.id]) {
+      try {
+        await ctx.deleteMessage(msgId);
+      } catch (delErr) {
+        console.error("Error deleting media message:", delErr.message);
+      }
+    }
+    delete statusMediaMessages[ctx.chat.id];
+  }
+  showMainMenu(ctx);
+});
+
 // ====================
-// ОБРАБОТКА КНОПКИ "Activate Bots"
+// ОБРАБОТКА КНОПКИ "Activate Bots" – подменю
 // ====================
 bot.action('menu_activate_bots', (ctx) => {
   const text = "Activate Bots:\nSelect a bot to activate:";
   const keyboard = Markup.inlineKeyboard([
     [
-      // Для MarketStats вместо URL используем callback, чтобы отправить уведомление с кнопкой "Start"
+      // Для MarketStats используем callback, чтобы перейти в режим этого бота
       Markup.button.callback("MarketStats", "activate_marketstats"),
       Markup.button.url("OnChain", "https://t.me/CryptoHawkOnChainBot?start=START")
     ],
@@ -348,6 +385,28 @@ bot.action('menu_activate_bots', (ctx) => {
 bot.action('back_from_activate', (ctx) => {
   ctx.answerCbQuery();
   showMainMenu(ctx);
+});
+
+// ====================
+// ОБРАБОТКА КНОПКИ "MarketStats" в подменю Activate Bots
+// ====================
+bot.action('activate_marketstats', async (ctx) => {
+  await ctx.answerCbQuery();
+  // Отправляем сообщение с кнопкой START, расположенной по центру уведомления (inline кнопка)
+  await ctx.reply(
+    "Welcome to MarketStats Bot.\nPress the START button to activate notifications.",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("START", "start_marketstats")],
+      [Markup.button.callback("← Back", "back_from_activate")]
+    ])
+  );
+});
+
+// Обработка нажатия кнопки "START" внутри MarketStats
+bot.action('start_marketstats', async (ctx) => {
+  await ctx.answerCbQuery();
+  // Здесь можно реализовать запуск уведомлений или запуск логики MarketStats
+  await ctx.reply("MarketStats notifications activated.");
 });
 
 // ====================
