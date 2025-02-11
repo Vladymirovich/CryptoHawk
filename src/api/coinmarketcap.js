@@ -1,6 +1,5 @@
 // src/api/coinmarketcap.js
 require('dotenv').config({ path: __dirname + '/../../config/.env' });
-const fetch = require('node-fetch');
 const { COINMARKETCAP_API_KEY } = process.env;
 
 async function fetchGlobalMetrics() {
@@ -15,6 +14,8 @@ async function fetchGlobalMetrics() {
   console.log("Fetching global metrics using API key:", COINMARKETCAP_API_KEY);
 
   try {
+    // Используем динамический импорт для node-fetch, так как v3 является ESM‑only
+    const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
     const res = await fetch(url, options);
     if (!res.ok) {
       throw new Error(`HTTP error! status: ${res.status}`);
