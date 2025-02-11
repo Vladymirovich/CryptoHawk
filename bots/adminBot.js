@@ -205,7 +205,6 @@ async function getServerMetrics() {
 
   const memGaugeUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(memConfig))}`;
   const cpuGaugeUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(cpuConfig))}`;
-  const netGaugeUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(netConfig))}`;
   const diskGaugeUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(diskConfig))}`;
 
   return {
