@@ -67,7 +67,7 @@ const marketStatsSettings = {
   market_overview: { active: false }
 };
 
-// Маппинги для формирования ярлыков (используются для построения меню)
+// Маппинги для формирования ярлыков
 const cexCategoryMapping = {
   "Flow Alerts": "flowAlerts",
   "CEX Tracking": "cexTracking",
@@ -92,9 +92,9 @@ const marketStatsCategoryMapping = {
 };
 
 /* --------------------------
-   Функции для сбора системных метрик
+   Функция для сбора метрик сервера
 -------------------------- */
-// Функция для измерения времени отклика локального HTTP-сервера и сбора метрик через systeminformation
+// Функция измеряет время отклика локального HTTP-сервера и собирает системные метрики через systeminformation.
 async function getServerMetrics() {
   const port = process.env.PORT || 3000;
   const url = `http://localhost:${port}/`;
@@ -103,12 +103,8 @@ async function getServerMetrics() {
   const responseTime = await new Promise((resolve, reject) => {
     http.get(url, (res) => {
       res.on('data', () => {}); // потребляем данные
-      res.on('end', () => {
-        resolve(Date.now() - start);
-      });
-    }).on('error', (err) => {
-      reject(err);
-    });
+      res.on('end', () => resolve(Date.now() - start));
+    }).on('error', (err) => reject(err));
   });
 
   const memData = await si.mem();
@@ -131,7 +127,7 @@ async function getServerMetrics() {
     const totalBytesPerSec = netStats[0].rx_sec + netStats[0].tx_sec;
     throughput = (totalBytesPerSec / 1024).toFixed(2) + " KB/s";
   }
-
+  
   const activeUsers = usersData.length;
 
   let diskUsagePercent = "0";
@@ -169,32 +165,40 @@ async function getServerMetrics() {
   };
 }
 
-// Асинхронная функция для формирования подробного отчёта о состоянии сервера
-async function getDetailedServerStatus() {
+// Асинхронная функция, которая формирует подробный отчёт о состоянии сервера и отправляет его с фото-метриками
+async function sendServerStatus(ctx) {
   try {
     const metrics = await getServerMetrics();
-    return `🖥 **Server Status Report**:
+    const statusText = `🖥 **Server Status Report**:
 • **Response Time:** ${metrics.responseTime} ms
 • **Throughput:** ${metrics.throughput}
 • **Active Users:** ${metrics.activeUsers}
 
 • **Memory:** Total: ${metrics.totalMem} MB, Used: ${metrics.usedMem} MB, Free: ${metrics.freeMem} MB (${metrics.usedMemPercentage}%)
-   [Memory Gauge](${metrics.memGaugeUrl})
-
 • **CPU Load:** ${metrics.cpuLoadPercent}%
-   [CPU Gauge](${metrics.cpuGaugeUrl})
-
 • **Network Throughput:** ${metrics.throughput}
-   [Network Gauge](${metrics.netGaugeUrl})
-
 • **Disk Usage:** ${metrics.diskUsageStr}
-   [Disk Gauge](${metrics.diskGaugeUrl})
-
 • **Uptime:** ${metrics.uptime}
 
 #CryptoHawk`;
+    
+    // Отправляем медиагруппу с изображениями для Memory, CPU и Disk
+    const media = [
+      { type: 'photo', media: metrics.memGaugeUrl, caption: 'Memory Usage (%)' },
+      { type: 'photo', media: metrics.cpuGaugeUrl, caption: 'CPU Load (%)' },
+      { type: 'photo', media: metrics.diskGaugeUrl, caption: 'Disk Usage (%)' }
+    ];
+    await ctx.telegram.sendMediaGroup(ctx.chat.id, media);
+    
+    // Отправляем текстовый отчёт с кнопкой "← Back"
+    await ctx.reply(statusText, {
+      parse_mode: 'Markdown',
+      reply_markup: Markup.inlineKeyboard([
+        [Markup.button.callback("← Back", "back_from_status")]
+      ]).reply_markup
+    });
   } catch (err) {
-    return `Error retrieving server metrics: ${err.message}`;
+    ctx.reply(`Error retrieving server metrics: ${err.message}`);
   }
 }
 
@@ -263,14 +267,7 @@ bot.action('menu_trends', (ctx) => {
 
 bot.action('menu_status', async (ctx) => {
   ctx.answerCbQuery();
-  const statusText = await getDetailedServerStatus();
-  // Отправляем отчет со статусом и кнопкой "← Back" для возврата в главное меню
-  ctx.reply(statusText, {
-    parse_mode: 'Markdown',
-    reply_markup: Markup.inlineKeyboard([
-      [Markup.button.callback("← Back", "back_from_status")]
-    ]).reply_markup
-  });
+  await sendServerStatus(ctx);
 });
 
 bot.action('back_from_status', (ctx) => {
