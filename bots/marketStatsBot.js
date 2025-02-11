@@ -19,15 +19,14 @@ const bot = new Telegraf(process.env.TELEGRAM_MARKET_BOT_TOKEN);
 // ====================
 bot.start(async (ctx) => {
   try {
-    // Пытаемся удалить входящее сообщение с командой /start,
-    // чтобы оно не отображалось в чате (работает, если бот имеет соответствующие права)
+    // Пытаемся удалить входящее сообщение с командой /start, чтобы оно не отображалось в чате
     if (ctx.message && ctx.message.message_id) {
       await ctx.deleteMessage(ctx.message.message_id);
     }
   } catch (err) {
     console.error("Error deleting /start message:", err.message);
   }
-  // Отправляем сообщение с единственной кнопкой START, расположенной по центру уведомления
+  // Отправляем приветственное сообщение с единственной кнопкой "🟦 START"
   await ctx.reply(
     "Press the 🟦 START button below to activate notifications.",
     Markup.inlineKeyboard([
@@ -37,11 +36,16 @@ bot.start(async (ctx) => {
 });
 
 // ====================
-// ОБРАБОТКА КНОПКИ "START" в MarketStats боте
+// ОБРАБОТКА КНОПКИ "🟦 START"
 // ====================
 bot.action("start_marketstats", async (ctx) => {
-  await ctx.answerCbQuery();
-  // Здесь можно добавить запуск логики уведомлений – пуллер не стартует автоматически
+  try {
+    // Отвечаем на callback-запрос (чтобы кнопка не висела в ожидании)
+    await ctx.answerCbQuery();
+  } catch (err) {
+    console.error("Error answering callback query:", err.message);
+  }
+  // Отправляем сообщение об активации уведомлений
   await ctx.reply("MarketStats notifications activated. (Poller remains off until manually started.)");
 });
 
