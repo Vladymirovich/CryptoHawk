@@ -109,17 +109,19 @@ function generateGaugeConfig(value, title) {
     type: 'doughnut',
     data: {
       datasets: [{
+        // Данные: [значение, оставшаяся часть до 100]
         data: [value, 100 - value],
         backgroundColor: ['#36A2EB', '#555555'], // основной цвет и затемнённый оттенок
         borderColor: ['#000000', '#000000'],
-        borderWidth: 2
+        borderWidth: 1 // тонкая граница
       }]
     },
     options: {
-      rotation: Math.PI,
-      circumference: Math.PI,
-      cutoutPercentage: 70,
+      rotation: Math.PI,         // Отрисовка с левой стороны (полукруг)
+      circumference: Math.PI,      // Полукруговой график
+      cutoutPercentage: 70,        // Размер вырезанной центральной части (если используется Chart.js v2; в Chart.js v3 – cutout: '70%')
       plugins: {
+        // Плагин для отрисовки текста внутри doughnut (предполагается, что у вас установлен плагин doughnutlabel)
         doughnutlabel: {
           labels: [
             {
@@ -137,12 +139,12 @@ function generateGaugeConfig(value, title) {
       },
       responsive: false,
       maintainAspectRatio: false,
-      backgroundColor: '#000000'
+      backgroundColor: '#000000' // Чёрный фон
     }
   };
 }
 
-// Глобальный объект для хранения ID отправленных медиа сообщений по chat_id
+// Глобальный объект для хранения ID отправленных медиа сообщений по chat_id (если потребуется удаление изображений)
 const statusMediaMessages = {};
 
 // ====================
@@ -164,7 +166,7 @@ async function getServerMetrics() {
   const memData = await si.mem();
   const cpuLoad = await si.currentLoad();
   const fsData = await si.fsSize();
-  const netStats = await si.networkStats();
+  const netStats = await si.networkStats(); // Метрика throughput используется только текстом
   const usersData = await si.users();
   const procData = await si.processes();
   const processCount = procData.all;
@@ -183,7 +185,7 @@ async function getServerMetrics() {
     throughput = (totalBytesPerSec / 1024).toFixed(2) + " KB/s";
   }
 
-  // Disk Usage – ищем раздел с точкой монтирования "/" (или первый раздел)
+  // Disk Usage – ищем раздел с точкой монтирования "/" (или берем первый раздел)
   let diskUsagePercent = "0";
   let diskUsageStr = "N/A";
   if (fsData && fsData.length > 0) {
@@ -194,18 +196,14 @@ async function getServerMetrics() {
     diskUsageStr = `${usedGB} / ${sizeGB} GB (${diskUsagePercent}%)`;
   }
 
-  // Генерация графиков через QuickChart.io (используем endpoint https://quickchart.io/chart)
+  // Генерация графиков через QuickChart.io (используя endpoint https://quickchart.io/chart)
   const memConfig = generateGaugeConfig(Number(usedMemPercentage), 'Memory Usage (%)');
   const cpuConfig = generateGaugeConfig(Number(cpuLoadPercent), 'CPU Load (%)');
-  const netVal = (netStats && netStats.length > 0)
-    ? Math.min((netStats[0].rx_sec + netStats[0].tx_sec) / 1024 / 10, 100).toFixed(0)
-    : "0";
-  const netConfig = generateGaugeConfig(Number(netVal), 'Network Throughput (%)');
   const diskConfig = generateGaugeConfig(Number(diskUsagePercent), 'Disk Usage (%)');
 
-  const memGaugeUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(memConfig))}`;
-  const cpuGaugeUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(cpuConfig))}`;
-  const diskGaugeUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(diskConfig))}`;
+  const memGaugeUrl = `https://quickchart.io/chart/render?c=${encodeURIComponent(JSON.stringify(memConfig))}`;
+  const cpuGaugeUrl = `https://quickchart.io/chart/render?c=${encodeURIComponent(JSON.stringify(cpuConfig))}`;
+  const diskGaugeUrl = `https://quickchart.io/chart/render?c=${encodeURIComponent(JSON.stringify(diskConfig))}`;
 
   return {
     responseTime,
@@ -221,8 +219,7 @@ async function getServerMetrics() {
     diskUsageStr,
     memGaugeUrl,
     cpuGaugeUrl,
-    netGaugeUrl,
-    diskGaugeUrl
+    diskGaugeUrl  // Поле для Network Throughput отсутствует – метрика передаётся только текстом
   };
 }
 
@@ -237,7 +234,6 @@ async function getDetailedServerStatus() {
     const reportText = `🖥 **SystemStatus: ${systemStatus}**
 • **Response Time:** ${metrics.responseTime} ms
 • **Throughput:** ${metrics.throughput}
-• **Network Throughput:** ${metrics.throughput}
 • **Active Users:** ${metrics.activeUsers}
 • **Processes:** ${metrics.processCount}
 • **Memory:** Total: ${metrics.totalMem} MB, 
@@ -248,7 +244,7 @@ async function getDetailedServerStatus() {
 • **Uptime:** ${metrics.uptime}
 
 #CryptoHawk`;
-    return { text: reportText, images: { memGaugeUrl: metrics.memGaugeUrl, cpuGaugeUrl: metrics.cpuGaugeUrl, netGaugeUrl: metrics.netGaugeUrl, diskGaugeUrl: metrics.diskGaugeUrl } };
+    return { text: reportText, images: { memGaugeUrl: metrics.memGaugeUrl, cpuGaugeUrl: metrics.cpuGaugeUrl, diskGaugeUrl: metrics.diskGaugeUrl } };
   } catch (err) {
     return { text: `Error retrieving server metrics: ${err.message}`, images: {} };
   }
@@ -304,42 +300,42 @@ bot.action('menu_status', async (ctx) => {
   await ctx.answerCbQuery();
   try {
     const { text, images } = await getDetailedServerStatus();
-    // Пытаемся получить все изображения; если хотя бы одно не удаётся – отправляем только текстовый отчёт
-    let mediaGroup = [];
+    // Инициализируем массив для хранения ID отправленных медиа-сообщений для данного чата
+    statusMediaMessages[ctx.chat.id] = [];
     try {
+      // Получаем буферы для изображений (только Memory, CPU и Disk)
       const memBuffer = await fetchImage(images.memGaugeUrl);
       const cpuBuffer = await fetchImage(images.cpuGaugeUrl);
-      const netBuffer = await fetchImage(images.netGaugeUrl);
       const diskBuffer = await fetchImage(images.diskGaugeUrl);
-      mediaGroup = [
+      const mediaGroup = [
         { type: 'photo', media: { source: memBuffer }, caption: 'Memory Usage' },
         { type: 'photo', media: { source: cpuBuffer }, caption: 'CPU Load' },
-        { type: 'photo', media: { source: netBuffer }, caption: 'Network Throughput' },
         { type: 'photo', media: { source: diskBuffer }, caption: 'Disk Usage' }
       ];
-      await ctx.replyWithMediaGroup(mediaGroup);
+      // Отправляем медиа группу и сохраняем ID отправленных сообщений
+      const sentMessages = await ctx.replyWithMediaGroup(mediaGroup);
+      statusMediaMessages[ctx.chat.id] = sentMessages.map(msg => msg.message_id);
     } catch (imgErr) {
       console.error("Error fetching images, sending text only:", imgErr.message);
     }
-    // Отправляем текстовый отчёт с кнопкой "← Back", которая остаётся до ручного нажатия
-    await ctx.reply(text, {
+    // Отправляем текстовый отчёт с кнопкой "← Back"
+    const sentTextMsg = await ctx.reply(text, {
       parse_mode: 'Markdown',
       disable_web_page_preview: true,
       reply_markup: Markup.inlineKeyboard([
         [Markup.button.callback("← Back", "back_from_status")]
       ]).reply_markup
     });
+    // Сохраняем ID текстового сообщения тоже (чтобы удалить его при возврате в главное меню)
+    statusMediaMessages[ctx.chat.id].push(sentTextMsg.message_id);
   } catch (err) {
     await ctx.reply(`Error retrieving server status: ${err.message}`);
   }
 });
 
-bot.action('back_from_status', (ctx) => {
-  ctx.answerCbQuery();
-  showMainMenu(ctx);
-});
-
-// При нажатии кнопки "← Back" удаляем ранее отправленные медиа-сообщения и возвращаем главное меню
+// ====================
+// ОБРАБОТКА КНОПКИ "← Back" – удаляем ранее отправленные медиа-сообщения и возвращаем главное меню
+// ====================
 bot.action('back_from_status', async (ctx) => {
   await ctx.answerCbQuery();
   if (statusMediaMessages[ctx.chat.id]) {
@@ -362,8 +358,8 @@ bot.action('menu_activate_bots', (ctx) => {
   const text = "Activate Bots:\nSelect a bot to activate:";
   const keyboard = Markup.inlineKeyboard([
     [
-      // Для MarketStats используем callback, чтобы перейти в режим этого бота
-      Markup.button.callback("MarketStats", "activate_marketstats"),
+      // Для MarketStats используем URL-ссылку, чтобы перенаправить пользователя в соответствующий бот.
+      Markup.button.url("MarketStats", "https://t.me/CryptoHawk_market_bot"),
       Markup.button.url("OnChain", "https://t.me/CryptoHawkOnChainBot?start=START")
     ],
     [
@@ -386,27 +382,6 @@ bot.action('back_from_activate', (ctx) => {
   showMainMenu(ctx);
 });
 
-// ====================
-// ОБРАБОТКА КНОПКИ "MarketStats" в подменю Activate Bots
-// ====================
-bot.action('activate_marketstats', async (ctx) => {
-  await ctx.answerCbQuery();
-  // Отправляем сообщение с кнопкой START, расположенной по центру уведомления (inline кнопка)
-  await ctx.reply(
-    "Welcome to MarketStats Bot.\nPress the START button to activate notifications.",
-    Markup.inlineKeyboard([
-      [Markup.button.callback("START", "start_marketstats")],
-      [Markup.button.callback("← Back", "back_from_activate")]
-    ])
-  );
-});
-
-// Обработка нажатия кнопки "START" внутри MarketStats
-bot.action('start_marketstats', async (ctx) => {
-  await ctx.answerCbQuery();
-  // Здесь можно реализовать запуск уведомлений или запуск логики MarketStats
-  await ctx.reply("MarketStats notifications activated.");
-});
 
 // ====================
 // ОБРАБОТКА ПОДМЕНЮ "MarketStats"
