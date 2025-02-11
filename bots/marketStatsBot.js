@@ -3,7 +3,7 @@
 // ====================
 
 require('dotenv').config({ path: __dirname + '/../config/.env' });
-const { Telegraf, Markup } = require('telegraf');
+const { Telegraf } = require('telegraf');
 const logger = require('../logs/apiLogger');
 
 // Проверка наличия токена для MarketStats бота
@@ -19,39 +19,23 @@ const bot = new Telegraf(process.env.TELEGRAM_MARKET_BOT_TOKEN);
 // ====================
 bot.start(async (ctx) => {
   try {
-    // Пытаемся удалить входящее сообщение с командой /start, чтобы оно не отображалось в чате
+    // Пытаемся удалить входящее сообщение с командой /start, чтобы оно не отображалось в чате (если бот имеет соответствующие права)
     if (ctx.message && ctx.message.message_id) {
       await ctx.deleteMessage(ctx.message.message_id);
     }
   } catch (err) {
     console.error("Error deleting /start message:", err.message);
   }
-  // Отправляем сообщение, стилизованное как уведомление, с единственной inline‑кнопкой "🟦 START"
+  // Отправляем приветственное уведомление (без inline-кнопок)
   await ctx.reply(
-    "🟦 <b>MarketStats Bot</b>\n\nPress the <b>🟦 START</b> button below to activate notifications.",
-    {
-      parse_mode: "HTML",
-      reply_markup: Markup.inlineKeyboard([
-        [Markup.button.callback("🟦 START", "start_marketstats")]
-      ])
-    }
+    "Get important and up-to-date market status information. This data will help you better understand market dynamics and make informed trading decisions.",
+    { parse_mode: "HTML" }
   );
 });
 
 // ====================
-// ОБРАБОТКА КНОПКИ "🟦 START"
+// Запуск бота
 // ====================
-bot.action("start_marketstats", async (ctx) => {
-  try {
-    // Отвечаем на callback-запрос, чтобы убрать «часики» у кнопки
-    await ctx.answerCbQuery();
-  } catch (err) {
-    console.error("Error answering callback query:", err.message);
-  }
-  // Отправляем уведомление об активации (здесь можно запускать нужную логику, например, старт уведомлений)
-  await ctx.reply("MarketStats notifications activated. (Poller remains off until manually started.)");
-});
-
 bot.launch()
   .then(() => logger.info("MarketStats Bot launched."))
   .catch((err) => logger.error(`MarketStats Bot launch error: ${err.message}`));
