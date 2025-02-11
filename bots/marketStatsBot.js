@@ -1,6 +1,6 @@
 // bots/marketStatsBot.js
 require('dotenv').config({ path: __dirname + '/../config/.env' });
-// Обязательно запускаем поллер
+// Обязательно запускаем пуллер, чтобы получать данные
 require('../MarketStats/poller');
 
 const { Telegraf } = require('telegraf');
