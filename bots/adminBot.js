@@ -60,7 +60,7 @@ const cexSettings = {
 };
 
 // Настройки для MarketStats (по умолчанию – все отключены)
-// Добавлен флаг market_overview – опрос глобальных метрик выполняется только при его включении.
+// Добавлен флаг market_overview – его значение теперь НЕ влияет на кнопку "Status"
 const marketStatsSettings = {
   open_interest: { active: false },
   top_oi: { active: false },
@@ -102,20 +102,20 @@ const marketStatsCategoryMapping = {
 // ====================
 // Функция для сбора системных метрик и генерации графиков
 // ====================
-
 async function getServerMetrics() {
-  // Измеряем время отклика через HTTP GET-запрос к локальному серверу
   const port = process.env.PORT || 3000;
   const url = `http://localhost:${port}/`;
   const start = Date.now();
+  
+  // Измеряем время отклика локального сервера
   const responseTime = await new Promise((resolve, reject) => {
     http.get(url, (res) => {
       res.on('data', () => {}); // потребляем данные
       res.on('end', () => resolve(Date.now() - start));
     }).on('error', (err) => reject(err));
   });
-
-  // Сбор системных метрик через systeminformation
+  
+  // Сбор метрик через systeminformation
   const memData = await si.mem();
   const cpuLoad = await si.currentLoad();
   const fsData = await si.fsSize();
@@ -137,7 +137,7 @@ async function getServerMetrics() {
     const totalBytesPerSec = netStats[0].rx_sec + netStats[0].tx_sec;
     throughput = (totalBytesPerSec / 1024).toFixed(2) + " KB/s";
   }
-
+  
   // Disk Usage – ищем раздел с точкой монтирования "/"
   let diskUsagePercent = "0";
   let diskUsageStr = "N/A";
@@ -148,8 +148,8 @@ async function getServerMetrics() {
     const sizeGB = (rootFs.size / (1024 * 1024 * 1024)).toFixed(2);
     diskUsageStr = `${usedGB} / ${sizeGB} GB (${diskUsagePercent}%)`;
   }
-
-  // Генерация графиков через QuickChart.io – используем endpoint без /render/sf
+  
+  // Генерация графиков через QuickChart.io – URL формируются с помощью encodeURIComponent
   const memConfig = {
     type: 'radialGauge',
     data: { datasets: [{ data: [Number(usedMemPercentage)] }] },
@@ -196,11 +196,11 @@ async function getServerMetrics() {
   };
 }
 
-// Асинхронная функция формирования отчёта о сервере
+// Асинхронная функция для формирования отчёта о состоянии сервера
 async function getDetailedServerStatus() {
   try {
     const metrics = await getServerMetrics();
-    // Определяем статус системы: если время ответа > 1000ms – WARNING, иначе OK
+    // Определяем статус системы (пример: если Response Time > 1000 ms – WARNING, иначе OK)
     const systemStatus = metrics.responseTime > 1000 ? "WARNING" : "OK";
     const reportText = `🖥 **SystemStatus: ${systemStatus}**
 • **Response Time:** ${metrics.responseTime} ms
@@ -222,21 +222,22 @@ async function getDetailedServerStatus() {
   }
 }
 
-// ====================
-// Хелпер: Получение изображения по URL как Buffer
-// ====================
+// Хелпер: Получение изображения по URL как Buffer с обработкой ошибки
 async function fetchImage(url) {
-  const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Failed to fetch image from ${url}: ${res.status}`);
-  return await res.buffer();
+  try {
+    const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Failed to fetch image from ${url}: ${res.status}`);
+    return await res.buffer();
+  } catch (err) {
+    console.error("Image fetch error:", err.message);
+    throw err;
+  }
 }
 
 // ====================
-// ОБРАБОТКА ГЛАВНОГО МЕНЮ
+// ОБРАБОТКА ГЛАВНОГО МЕНЮ (INLINE)
 // ====================
-
-// --- Блок: Главное меню ---
 function showMainMenu(ctx) {
   const text = "Welcome to CryptoHawk Admin Bot!\nSelect an option:";
   const keyboard = Markup.inlineKeyboard([
@@ -248,44 +249,31 @@ function showMainMenu(ctx) {
   ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
 }
 
-// --- Команда /start для главного меню ---
-bot.start((ctx) => {
-  ctx.reply("Welcome to CryptoHawk Admin Bot!\nSelect an option:", {
-    reply_markup: Markup.inlineKeyboard([
-      [Markup.button.callback("MarketStats", "menu_marketstats"), Markup.button.callback("OnChain", "menu_onchain")],
-      [Markup.button.callback("CEX Screen", "menu_cex_screen"), Markup.button.callback("DEX Screen", "menu_dex_screen")],
-      [Markup.button.callback("News", "menu_news"), Markup.button.callback("Trends", "menu_trends")],
-      [Markup.button.callback("Activate Bots", "menu_activate_bots"), Markup.button.callback("Status", "menu_status")]
-    ]).reply_markup
-  });
-});
-
 // ====================
 // ОБРАБОТКА КНОПКИ "Status"
 // ====================
 bot.action('menu_status', async (ctx) => {
   await ctx.answerCbQuery();
-  // Если опция "Market Overview" не активирована, не выполнять сбор статуса
-  if (!marketStatsSettings.market_overview.active) {
-    return ctx.reply("Market Overview is disabled. Please enable it in MarketStats menu to retrieve status.");
-  }
   try {
     const { text, images } = await getDetailedServerStatus();
-    // Получаем изображения как Buffer
-    const memBuffer = await fetchImage(images.memGaugeUrl);
-    const cpuBuffer = await fetchImage(images.cpuGaugeUrl);
-    const netBuffer = await fetchImage(images.netGaugeUrl);
-    const diskBuffer = await fetchImage(images.diskGaugeUrl);
-    
-    // Отправляем медиа-группу с изображениями (каждая картинка отображается в виде отдельного фото)
-    const mediaGroup = [
-      { type: 'photo', media: { source: memBuffer }, caption: 'Memory Usage' },
-      { type: 'photo', media: { source: cpuBuffer }, caption: 'CPU Load' },
-      { type: 'photo', media: { source: netBuffer }, caption: 'Network Throughput' },
-      { type: 'photo', media: { source: diskBuffer }, caption: 'Disk Usage' }
-    ];
-    await ctx.replyWithMediaGroup(mediaGroup);
-    // Отправляем текстовый отчёт с закреплённой кнопкой "← Back"
+    // Пытаемся получить изображения; если хотя бы одно не доступно, перейдем к текстовому отчёту
+    let mediaGroup = [];
+    try {
+      const memBuffer = await fetchImage(images.memGaugeUrl);
+      const cpuBuffer = await fetchImage(images.cpuGaugeUrl);
+      const netBuffer = await fetchImage(images.netGaugeUrl);
+      const diskBuffer = await fetchImage(images.diskGaugeUrl);
+      mediaGroup = [
+        { type: 'photo', media: { source: memBuffer }, caption: 'Memory Usage' },
+        { type: 'photo', media: { source: cpuBuffer }, caption: 'CPU Load' },
+        { type: 'photo', media: { source: netBuffer }, caption: 'Network Throughput' },
+        { type: 'photo', media: { source: diskBuffer }, caption: 'Disk Usage' }
+      ];
+      await ctx.replyWithMediaGroup(mediaGroup);
+    } catch (imgErr) {
+      console.error("Error fetching images, sending text only:", imgErr.message);
+    }
+    // Отправляем текстовый отчёт с кнопкой "← Back"
     await ctx.reply(text, {
       parse_mode: 'Markdown',
       disable_web_page_preview: true,
@@ -310,7 +298,8 @@ bot.action('menu_activate_bots', (ctx) => {
   const text = "Activate Bots:\nSelect a bot to activate:";
   const keyboard = Markup.inlineKeyboard([
     [
-      Markup.button.url("MarketStats", "https://t.me/CryptoHawk_market_bot?start=START"),
+      // Для MarketStats вместо URL используем callback, чтобы отправить уведомление с кнопкой "Start"
+      Markup.button.callback("MarketStats", "activate_marketstats"),
       Markup.button.url("OnChain", "https://t.me/CryptoHawkOnChainBot?start=START")
     ],
     [
@@ -326,6 +315,14 @@ bot.action('menu_activate_bots', (ctx) => {
     ]
   ]);
   ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
+});
+
+bot.action('activate_marketstats', (ctx) => {
+  ctx.answerCbQuery();
+  // Отправляем сообщение с уведомлением и кнопкой "Start" для MarketStats Bot
+  const activationText = "🔵 *MarketStats Bot Activation*\n\nPress the **Start** button below to launch the MarketStats Bot.";
+  const startButton = Markup.inlineKeyboard([[Markup.button.callback("Start", "marketstats_start")]]);
+  ctx.replyWithMarkdown(activationText, { reply_markup: startButton.reply_markup });
 });
 
 bot.action('back_from_activate', (ctx) => {
@@ -393,61 +390,51 @@ bot.action('toggle_open_interest', (ctx) => {
   ctx.answerCbQuery(`Open Interest now ${marketStatsSettings.open_interest.active ? 'ENABLED' : 'DISABLED'}`);
   showMarketStatsMenu(ctx);
 });
-
 bot.action('toggle_top_oi', (ctx) => {
   marketStatsSettings.top_oi.active = !marketStatsSettings.top_oi.active;
   ctx.answerCbQuery(`Top OI now ${marketStatsSettings.top_oi.active ? 'ENABLED' : 'DISABLED'}`);
   showMarketStatsMenu(ctx);
 });
-
 bot.action('toggle_top_funding', (ctx) => {
   marketStatsSettings.top_funding.active = !marketStatsSettings.top_funding.active;
   ctx.answerCbQuery(`Top Funding now ${marketStatsSettings.top_funding.active ? 'ENABLED' : 'DISABLED'}`);
   showMarketStatsMenu(ctx);
 });
-
 bot.action('toggle_crypto_etfs_net_flow', (ctx) => {
   marketStatsSettings.crypto_etfs_net_flow.active = !marketStatsSettings.crypto_etfs_net_flow.active;
   ctx.answerCbQuery(`Crypto ETFs Net Flow now ${marketStatsSettings.crypto_etfs_net_flow.active ? 'ENABLED' : 'DISABLED'}`);
   showMarketStatsMenu(ctx);
 });
-
 bot.action('toggle_crypto_market_cap', (ctx) => {
   marketStatsSettings.crypto_market_cap.active = !marketStatsSettings.crypto_market_cap.active;
   ctx.answerCbQuery(`Crypto Market Cap now ${marketStatsSettings.crypto_market_cap.active ? 'ENABLED' : 'DISABLED'}`);
   showMarketStatsMenu(ctx);
 });
-
 bot.action('toggle_cmc_fear_greed', (ctx) => {
   marketStatsSettings.cmc_fear_greed.active = !marketStatsSettings.cmc_fear_greed.active;
   ctx.answerCbQuery(`CMC Fear & Greed now ${marketStatsSettings.cmc_fear_greed.active ? 'ENABLED' : 'DISABLED'}`);
   showMarketStatsMenu(ctx);
 });
-
 bot.action('toggle_cmc_altcoin_season', (ctx) => {
   marketStatsSettings.cmc_altcoin_season.active = !marketStatsSettings.cmc_altcoin_season.active;
   ctx.answerCbQuery(`CMC Altcoin Season now ${marketStatsSettings.cmc_altcoin_season.active ? 'ENABLED' : 'DISABLED'}`);
   showMarketStatsMenu(ctx);
 });
-
 bot.action('toggle_cmc100_index', (ctx) => {
   marketStatsSettings.cmc100_index.active = !marketStatsSettings.cmc100_index.active;
   ctx.answerCbQuery(`CMC 100 Index now ${marketStatsSettings.cmc100_index.active ? 'ENABLED' : 'DISABLED'}`);
   showMarketStatsMenu(ctx);
 });
-
 bot.action('toggle_eth_gas', (ctx) => {
   marketStatsSettings.eth_gas.active = !marketStatsSettings.eth_gas.active;
   ctx.answerCbQuery(`ETH Gas now ${marketStatsSettings.eth_gas.active ? 'ENABLED' : 'DISABLED'}`);
   showMarketStatsMenu(ctx);
 });
-
 bot.action('toggle_bitcoin_dominance', (ctx) => {
   marketStatsSettings.bitcoin_dominance.active = !marketStatsSettings.bitcoin_dominance.active;
   ctx.answerCbQuery(`Bitcoin Dominance now ${marketStatsSettings.bitcoin_dominance.active ? 'ENABLED' : 'DISABLED'}`);
   showMarketStatsMenu(ctx);
 });
-
 bot.action('toggle_market_overview', (ctx) => {
   marketStatsSettings.market_overview.active = !marketStatsSettings.market_overview.active;
   ctx.answerCbQuery(`Market Overview now ${marketStatsSettings.market_overview.active ? 'ENABLED' : 'DISABLED'}`);
