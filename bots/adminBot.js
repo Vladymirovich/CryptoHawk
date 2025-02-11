@@ -11,9 +11,7 @@ const http = require('http');
 const si = require('systeminformation'); // npm install systeminformation
 const logger = require('../logs/apiLogger');
 
-// ====================
-// Проверка токена админ-бота
-// ====================
+// Проверка наличия токена админ-бота
 if (!process.env.TELEGRAM_BOSS_BOT_TOKEN) {
   console.error("Error: TELEGRAM_BOSS_BOT_TOKEN is not defined in .env");
   process.exit(1);
@@ -62,7 +60,7 @@ const cexSettings = {
 };
 
 // Настройки для MarketStats (по умолчанию – все отключены)
-// Флаг market_overview добавлен: событие Global Overview будет опрашиваться только при его активации.
+// Добавлен флаг market_overview – опрос глобальных метрик выполняется только при его включении.
 const marketStatsSettings = {
   open_interest: { active: false },
   top_oi: { active: false },
@@ -77,7 +75,7 @@ const marketStatsSettings = {
   market_overview: { active: false }
 };
 
-// Маппинги для формирования ярлыков (используются для построения меню)
+// Маппинги для формирования ярлыков
 const cexCategoryMapping = {
   "Flow Alerts": "flowAlerts",
   "CEX Tracking": "cexTracking",
@@ -109,7 +107,7 @@ async function getServerMetrics() {
   const port = process.env.PORT || 3000;
   const url = `http://localhost:${port}/`;
   const start = Date.now();
-  // Отправляем HTTP GET-запрос для измерения времени отклика
+  
   const responseTime = await new Promise((resolve, reject) => {
     http.get(url, (res) => {
       res.on('data', () => {}); // потребляем данные
@@ -123,31 +121,24 @@ async function getServerMetrics() {
   const fsData = await si.fsSize();
   const netStats = await si.networkStats();
   const usersData = await si.users();
+  const procData = await si.processes();
+  const processCount = procData.all;
   
-  // Пересчет памяти в MB
   const totalMem = (memData.total / (1024 * 1024)).toFixed(2);
   const freeMem = (memData.available / (1024 * 1024)).toFixed(2);
   const usedMem = ((memData.total - memData.available) / (1024 * 1024)).toFixed(2);
   const usedMemPercentage = (((memData.total - memData.available) / memData.total) * 100).toFixed(0);
-  
-  // CPU load – текущая нагрузка в процентах
   const cpuLoadPercent = cpuLoad.currentLoad.toFixed(2);
   
-  // Uptime сервера
   const uptime = os.uptime();
   const uptimeStr = `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`;
   
-  // Throughput – рассчитываем скорость (KB/s) входящего и исходящего трафика
   let throughput = "0 KB/s";
   if (netStats && netStats.length > 0) {
     const totalBytesPerSec = netStats[0].rx_sec + netStats[0].tx_sec;
     throughput = (totalBytesPerSec / 1024).toFixed(2) + " KB/s";
   }
   
-  // Active Users – количество активных пользователей
-  const activeUsers = usersData.length;
-  
-  // Disk Usage – ищем файловую систему с точкой монтирования "/" (или первую, если не найдена)
   let diskUsagePercent = "0";
   let diskUsageStr = "N/A";
   if (fsData && fsData.length > 0) {
@@ -158,7 +149,7 @@ async function getServerMetrics() {
     diskUsageStr = `${usedGB} / ${sizeGB} GB (${diskUsagePercent}%)`;
   }
   
-  // Генерация динамических графиков через QuickChart.io
+  // Генерация динамических графиков через QuickChart.io (используем endpoint /chart/render/sf, который возвращает изображение)
   const memGaugeUrl = `https://quickchart.io/chart/render/sf?c={type:'radialGauge',data:{datasets:[{data:[${usedMemPercentage}]}]},options:{domain:{min:0,max:100},title:{display:true,text:'Memory Usage (%)'}}}`;
   const cpuGaugeUrl = `https://quickchart.io/chart/render/sf?c={type:'radialGauge',data:{datasets:[{data:[${cpuLoadPercent}]}]},options:{domain:{min:0,max:100},title:{display:true,text:'CPU Load (%)'}}}`;
   const netVal = (netStats && netStats.length > 0) ? Math.min((netStats[0].rx_sec + netStats[0].tx_sec) / 1024 / 10, 100).toFixed(0) : "0";
@@ -174,7 +165,8 @@ async function getServerMetrics() {
     cpuLoadPercent,
     uptime: uptimeStr,
     throughput,
-    activeUsers,
+    activeUsers: usersData.length,
+    processCount,
     diskUsageStr,
     memGaugeUrl,
     cpuGaugeUrl,
@@ -183,15 +175,19 @@ async function getServerMetrics() {
   };
 }
 
-// --- Функция для формирования подробного отчёта о состоянии сервера ---
 async function getDetailedServerStatus() {
   try {
     const metrics = await getServerMetrics();
-    return `🖥 **Server Status Report**:
+    // Определим системный статус (простой пример: если responseTime > 1000 ms, то warning)
+    const systemStatus = metrics.responseTime > 1000 ? "warning" : "ok";
+    
+    return {
+      text: `🖥 **SystemStatus:** ${systemStatus.toUpperCase()}
 • **Response Time:** ${metrics.responseTime} ms
 • **Throughput:** ${metrics.throughput}
 • **Network Throughput:** ${metrics.throughput}
 • **Active Users:** ${metrics.activeUsers}
+• **Processes:** ${metrics.processCount}
 • **Memory:** Total: ${metrics.totalMem} MB, 
 • **Used:** Used ${metrics.usedMem} MB, 
 • **Free:** Free ${metrics.freeMem} MB (${metrics.usedMemPercentage}%)
@@ -199,17 +195,35 @@ async function getDetailedServerStatus() {
 • **Disk Usage:** ${metrics.diskUsageStr}
 • **Uptime:** ${metrics.uptime}
 
-#CryptoHawk`;
+#CryptoHawk`,
+      images: {
+        memGaugeUrl: metrics.memGaugeUrl,
+        cpuGaugeUrl: metrics.cpuGaugeUrl,
+        netGaugeUrl: metrics.netGaugeUrl,
+        diskGaugeUrl: metrics.diskGaugeUrl
+      }
+    };
   } catch (err) {
-    return `Error retrieving server metrics: ${err.message}`;
+    return { text: `Error retrieving server metrics: ${err.message}`, images: {} };
   }
+}
+
+// ====================
+// Хелпер: Получение изображения по URL как Buffer
+// ====================
+async function fetchImage(url) {
+  const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed to fetch image from ${url}: ${res.status}`);
+  const buffer = await res.buffer();
+  return buffer;
 }
 
 // ====================
 // ОБРАБОТКА ГЛАВНОГО МЕНЮ
 // ====================
 
-// --- Блок: Главное меню ---
+// Блок: Главное меню
 function showMainMenu(ctx) {
   const text = "Welcome to CryptoHawk Admin Bot!\nSelect an option:";
   const keyboard = Markup.inlineKeyboard([
@@ -221,7 +235,7 @@ function showMainMenu(ctx) {
   ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
 }
 
-// --- Блок: Команда /start для главного меню ---
+// Команда /start для главного меню
 bot.start((ctx) => {
   ctx.reply("Welcome to CryptoHawk Admin Bot!\nSelect an option:", {
     reply_markup: Markup.inlineKeyboard([
@@ -233,14 +247,27 @@ bot.start((ctx) => {
   });
 });
 
-// --- Блок: Обработка кнопки "Status" ---
+// Блок: Обработка кнопки "Status"
 bot.action('menu_status', async (ctx) => {
   await ctx.answerCbQuery();
   try {
-    // Получаем метрики
-    const statusText = await getDetailedServerStatus();
-    // Отправляем текстовый отчет с отключенной веб-превью и кнопкой "← Back"
-    await ctx.reply(statusText, {
+    const { text, images } = await getDetailedServerStatus();
+    // Получаем изображения как buffers
+    const memBuffer = await fetchImage(images.memGaugeUrl);
+    const cpuBuffer = await fetchImage(images.cpuGaugeUrl);
+    const netBuffer = await fetchImage(images.netGaugeUrl);
+    const diskBuffer = await fetchImage(images.diskGaugeUrl);
+    
+    // Отправляем медиа-группу с изображениями статус-баров
+    const mediaGroup = [
+      { type: 'photo', media: { source: memBuffer }, caption: 'Memory Usage' },
+      { type: 'photo', media: { source: cpuBuffer }, caption: 'CPU Load' },
+      { type: 'photo', media: { source: netBuffer }, caption: 'Network Throughput' },
+      { type: 'photo', media: { source: diskBuffer }, caption: 'Disk Usage' }
+    ];
+    await ctx.replyWithMediaGroup(mediaGroup);
+    // Отправляем текстовый отчет с кнопкой "← Back"
+    await ctx.reply(text, {
       parse_mode: 'Markdown',
       disable_web_page_preview: true,
       reply_markup: Markup.inlineKeyboard([
@@ -257,12 +284,11 @@ bot.action('back_from_status', (ctx) => {
   showMainMenu(ctx);
 });
 
-// --- Блок: Обработка кнопки "Activate Bots" ---
+// Блок: Обработка кнопки "Activate Bots"
 bot.action('menu_activate_bots', (ctx) => {
   const text = "Activate Bots:\nSelect a bot to activate:";
   const keyboard = Markup.inlineKeyboard([
     [
-      // Добавлены параметр ?start=start для автоматического вызова команды /start в ботах
       Markup.button.url("MarketStats", "https://t.me/CryptoHawk_market_bot?start=start"),
       Markup.button.url("OnChain", "https://t.me/CryptoHawkOnChainBot?start=start")
     ],
@@ -286,8 +312,7 @@ bot.action('back_from_activate', (ctx) => {
   showMainMenu(ctx);
 });
 
-// --- Блок: Обработка подменю "MarketStats" ---
-// Включаем новую кнопку "Market Overview"
+// Блок: Обработка подменю "MarketStats"
 bot.action('menu_marketstats', (ctx) => {
   ctx.answerCbQuery();
   showMarketStatsMenu(ctx);
@@ -337,7 +362,7 @@ bot.action('back_from_marketstats', (ctx) => {
   showMainMenu(ctx);
 });
 
-// --- Блок: Toggle callbacks для MarketStats ---
+// Блок: Toggle callbacks для MarketStats
 bot.action('toggle_open_interest', (ctx) => {
   marketStatsSettings.open_interest.active = !marketStatsSettings.open_interest.active;
   ctx.answerCbQuery(`Open Interest now ${marketStatsSettings.open_interest.active ? 'ENABLED' : 'DISABLED'}`);
