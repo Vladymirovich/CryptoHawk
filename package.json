@@ -1,7 +1,7 @@
 {
   "name": "CryptoHawk",
   "version": "1.0.0",
-  "description": "CryptoHawk project:bots for cryptocurrency monitoring.",
+  "description": "CryptoHawk project: bots for cryptocurrency monitoring.",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
