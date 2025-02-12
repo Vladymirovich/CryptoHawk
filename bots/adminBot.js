@@ -422,6 +422,7 @@ function showMarketStatsMenu(ctx) {
       Markup.button.callback(getMarketToggleLabel("Bitcoin Dominance"), "toggle_bitcoin_dominance")
     ],
     [
+      // Обработка переключения для Market Overview (с вызовом setMarketOverviewActive)
       Markup.button.callback(getMarketToggleLabel("Market Overview"), "toggle_market_overview")
     ],
     [
@@ -443,7 +444,7 @@ bot.action('back_from_marketstats', (ctx) => {
 });
 
 // ====================
-// Toggle callbacks для MarketStats
+// Toggle callbacks для остальных событий
 // ====================
 bot.action('toggle_open_interest', (ctx) => {
   marketStatsSettings.open_interest.active = !marketStatsSettings.open_interest.active;
@@ -495,8 +496,19 @@ bot.action('toggle_bitcoin_dominance', (ctx) => {
   ctx.answerCbQuery(`Bitcoin Dominance now ${marketStatsSettings.bitcoin_dominance.active ? 'ENABLED' : 'DISABLED'}`);
   showMarketStatsMenu(ctx);
 });
+
+// ====================
+// Обработка переключения кнопки "Market Overview" в меню MarketStats
+// ====================
+
+// Импортируем функцию установки флага из poller.js
+const { setMarketOverviewActive } = require('../MarketStats/poller');
+
 bot.action('toggle_market_overview', (ctx) => {
+  // Переключаем активное состояние события
   marketStatsSettings.market_overview.active = !marketStatsSettings.market_overview.active;
+  // Устанавливаем флаг в модуле поллера
+  setMarketOverviewActive(marketStatsSettings.market_overview.active);
   ctx.answerCbQuery(`Market Overview now ${marketStatsSettings.market_overview.active ? 'ENABLED' : 'DISABLED'}`);
   showMarketStatsMenu(ctx);
 });
