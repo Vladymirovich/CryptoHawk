@@ -3,9 +3,9 @@
 const logger = require('../logs/apiLogger');
 require('dotenv').config({ path: __dirname + '/../config/.env' });
 
-const API_KEY = process.env.CMC_API_KEY; // Ваш API‑ключ CoinMarketCap
+const API_KEY = process.env.COINMARKETCAP_API_KEY; // Ваш API‑ключ CoinMarketCap
 if (!API_KEY) {
-  logger.error("CMC_API_KEY is not defined in .env");
+  logger.error("COINMARKETCAP_API_KEY is not defined in .env");
   process.exit(1);
 }
 
