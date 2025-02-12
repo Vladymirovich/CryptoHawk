@@ -1,7 +1,9 @@
+// ====================
 // bots/marketStatsBot.js
+// ====================
 
 require('dotenv').config({ path: __dirname + '/../config/.env' });
-const { Telegraf, Markup } = require('telegraf');
+const { Telegraf } = require('telegraf');
 const logger = require('../logs/apiLogger');
 const { startPoller, setNotificationCallback } = require('../MarketStats/poller');
 
@@ -20,40 +22,22 @@ let notificationChatId = null;
 // ====================
 bot.start(async (ctx) => {
   try {
-    // Пытаемся удалить входящее сообщение с командой /start, чтобы оно не отображалось в чате
+    // Пытаемся удалить исходное сообщение с командой /start, чтобы оно не отображалось в чате
     if (ctx.message && ctx.message.message_id) {
       await ctx.deleteMessage(ctx.message.message_id);
     }
   } catch (err) {
     logger.error("Error deleting /start message: " + err.message);
   }
-  // Сохраняем chat_id для отправки уведомлений
+  // Сохраняем chat_id для последующей отправки уведомлений
   notificationChatId = ctx.chat.id;
 
-  // Отправляем приветственное уведомление в виде красивого сообщения с inline‑кнопкой "🟦 START"
+  // Отправляем приветственное уведомление (без кнопки "START")
   await ctx.reply(
-    "🟦 <b>MarketStats Bot</b>\n\nPress the <b>🟦 START</b> button below to activate notifications.\n\n" +
-    "Receive important and up-to-date market information to help you understand market dynamics and make informed trading decisions.",
-    {
-      parse_mode: "HTML",
-      reply_markup: Markup.inlineKeyboard([
-        [Markup.button.callback("🟦 START", "start_marketstats")]
-      ])
-    }
+    "🟦 <b>MarketStats Bot</b>\n\nReceive real‑time Market Overview notifications.\n\n" +
+    "The bot is now activated and ready to receive notifications.",
+    { parse_mode: "HTML" }
   );
-});
-
-// ====================
-// ОБРАБОТКА КНОПКИ "🟦 START"
-// ====================
-bot.action("start_marketstats", async (ctx) => {
-  try {
-    await ctx.answerCbQuery();
-  } catch (err) {
-    logger.error("Error answering callback query: " + err.message);
-  }
-  // Отправляем уведомление об активации – здесь можно запускать логику уведомлений (например, включать поллер)
-  await ctx.reply("MarketStats notifications activated. (Poller remains off until manually started if not already active.)");
 });
 
 // ====================
@@ -71,9 +55,9 @@ setNotificationCallback(async (messageText) => {
   }
 });
 
-// Запускаем поллер с интервалом, например, 5 минут (300000 мс)
-// (Если событие активировано в админ-боте, поллер будет получать данные; иначе – выводить сообщение о неактивности)
-startPoller(300000);
+// Запускаем поллер с интервалом (100000 мс)
+// (Если событие активировано в админ‑боте, поллер будет получать данные и отправлять уведомления)
+startPoller(100000);
 
 bot.launch()
   .then(() => logger.info("MarketStats Bot launched."))
@@ -81,3 +65,5 @@ bot.launch()
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
+
+module.exports = bot;
