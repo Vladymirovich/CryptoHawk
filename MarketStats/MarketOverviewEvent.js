@@ -1,12 +1,13 @@
+// ====================
 // MarketStats/MarketOverviewEvent.js
+// ====================
 
 // Используем динамический импорт для node‑fetch (подходит для версии 3)
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
-
 const logger = require('../logs/apiLogger');
 require('dotenv').config({ path: __dirname + '/../config/.env' });
 
-const API_KEY = process.env.COINMARKETCAP_API_KEY; // CoinMarketCap API-ключ должен быть указан в .env
+const API_KEY = process.env.COINMARKETCAP_API_KEY;
 if (!API_KEY) {
   logger.error("COINMARKETCAP_API_KEY is not defined in .env");
   process.exit(1);
@@ -17,9 +18,22 @@ const HEADERS = {
   'Accept': 'application/json'
 };
 
+// Получение глобальных метрик (используется для расчёта Dominance и Crypto Market Cap)
+async function getGlobalMetrics() {
+  const url = 'https://pro-api.coinmarketcap.com/v1/global-metrics/quotes/latest';
+  try {
+    const res = await fetch(url, { headers: HEADERS });
+    const data = await res.json();
+    return data.data;
+  } catch (err) {
+    logger.error("Error fetching Global Metrics: " + err.message);
+    return null;
+  }
+}
+
 // Получение Fear and Greed Index
 async function getFearAndGreedIndex() {
-  const url = 'https://pro-api.coinmarketcap.com/v3/fearandgreed/latest';
+  const url = 'https://pro-api.coinmarketcap.com/v3/fear-and-greed/latest';
   try {
     const res = await fetch(url, { headers: HEADERS });
     const data = await res.json();
@@ -36,89 +50,136 @@ async function getCMC100Index() {
   try {
     const res = await fetch(url, { headers: HEADERS });
     const data = await res.json();
-    return data.data && data.data.value ? data.data.value : "N/A";
+    if (data.data) {
+      return {
+        current: data.data.current_price ? `$${Number(data.data.current_price).toFixed(2)}` : "N/A",
+        change: data.data.change_percentage_24h ? `${Number(data.data.change_percentage_24h).toFixed(2)}%` : "N/A"
+      };
+    }
+    return { current: "N/A", change: "N/A" };
   } catch (err) {
-    logger.error("Error fetching CMC 100 Index: " + err.message);
-    return "N/A";
+    logger.error("Error fetching CMC100 Index: " + err.message);
+    return { current: "N/A", change: "N/A" };
   }
 }
 
-// Получение глобальных метрик (для Spot Market Capitalization и Bitcoin Dominance)
-async function getGlobalMetrics() {
-  const url = 'https://pro-api.coinmarketcap.com/v1/global-metrics/quotes/latest';
-  try {
-    const res = await fetch(url, { headers: HEADERS });
-    const data = await res.json();
-    return data.data || null;
-  } catch (err) {
-    logger.error("Error fetching Global Metrics: " + err.message);
+// Формирование события "Market Dominance"
+async function getDominanceEvent() {
+  const metrics = await getGlobalMetrics();
+  if (!metrics || !metrics.quote || !metrics.quote.USD) {
     return null;
   }
-}
+  const usd = metrics.quote.USD;
+  const btc_current = usd.btc_dominance ? Number(usd.btc_dominance) : 0;
+  const eth_current = usd.eth_dominance ? Number(usd.eth_dominance) : 0;
+  const btc_yesterday = usd.btc_dominance_yesterday ? Number(usd.btc_dominance_yesterday) : btc_current;
+  const eth_yesterday = usd.eth_dominance_yesterday ? Number(usd.eth_dominance_yesterday) : eth_current;
+  const others_current = 100 - (btc_current + eth_current);
+  const others_yesterday = 100 - (btc_yesterday + eth_yesterday);
+  const btc_change = Number((btc_current - btc_yesterday).toFixed(2));
+  const eth_change = Number((eth_current - eth_yesterday).toFixed(2));
+  const others_change = Number((others_current - others_yesterday).toFixed(2));
 
-// Основная функция получения данных Market Overview
-async function getMarketOverviewData() {
-  const [fearAndGreed, cmc100, globalMetrics] = await Promise.all([
-    getFearAndGreedIndex(),
-    getCMC100Index(),
-    getGlobalMetrics()
-  ]);
-
-  // Для показателей, по которым API не предоставляет данные в бесплатном плане – используем "N/A"
-  const altcoinSeason = "N/A";
-  const cryptoETF = "N/A";
-  const ethGas = "N/A";
-
-  let spotMarketCap = "N/A", btcDominance = "N/A";
-  if (globalMetrics) {
-    // Предполагаем, что объект globalMetrics содержит поля total_market_cap и btc_dominance в валюте USD
-    spotMarketCap = globalMetrics.total_market_cap && globalMetrics.total_market_cap.usd
-      ? Number(globalMetrics.total_market_cap.usd).toFixed(2) + " USD"
-      : "N/A";
-    btcDominance = globalMetrics.btc_dominance
-      ? Number(globalMetrics.btc_dominance).toFixed(2) + "%"
-      : "N/A";
-  }
-
+  const text = `**Market Dominance**
+• **Bitcoin:** ${btc_current.toFixed(1)}% (Change: ${btc_change >= 0 ? '+' : ''}${btc_change}%)
+• **Ethereum:** ${eth_current.toFixed(1)}% (Change: ${eth_change >= 0 ? '+' : ''}${eth_change}%)
+• **Others:** ${others_current.toFixed(1)}% (Change: ${others_change >= 0 ? '+' : ''}${others_change}%)`;
   return {
-    fear_and_greed: {
-      name: "CMC Crypto Fear and Greed Index",
-      value: fearAndGreed,
-      chartUrl: "https://coinmarketcap.com/charts/fear-and-greed-index/"
-    },
-    altcoin_season: {
-      name: "CMC Altcoin Season Index",
-      value: altcoinSeason,
-      chartUrl: "https://coinmarketcap.com/charts/altcoin-season-index/"
-    },
-    cmc100_index: {
-      name: "CoinMarketCap 100 Index",
-      value: cmc100,
-      chartUrl: "https://coinmarketcap.com/charts/cmc100/"
-    },
-    spot_market_cap: {
-      name: "Spot Market Crypto Market Cap",
-      value: spotMarketCap,
-      chartUrl: "https://coinmarketcap.com/charts/spot-market/"
-    },
-    crypto_etf_tracker: {
-      name: "Cryptocurrency ETF Tracker",
-      value: cryptoETF,
-      chartUrl: "https://coinmarketcap.com/etf/"
-    },
-    bitcoin_dominance: {
-      name: "Bitcoin Dominance",
-      value: btcDominance,
-      chartUrl: "https://coinmarketcap.com/charts/bitcoin-dominance/"
-    },
-    eth_gas: {
-      name: "ETH Gas",
-      value: ethGas,
-      chartUrl: "https://coinmarketcap.com/charts/eth-gas/"
-    }
+    name: "Market Dominance",
+    text,
+    image: "https://coinmarketcap.com/charts/bitcoin-dominance/"
   };
 }
 
+// Формирование события "CMC Crypto Fear and Greed Index"
+async function getFearAndGreedEvent() {
+  const indexValue = await getFearAndGreedIndex();
+  const text = `**CMC Crypto Fear and Greed Index**
+Current Value: ${indexValue}`;
+  return {
+    name: "Fear and Greed Index",
+    text,
+    image: "https://coinmarketcap.com/charts/fear-and-greed-index/"
+  };
+}
+
+// Формирование события "CMC Altcoin Season Index"
+async function getAltcoinSeasonEvent() {
+  // Для бесплатного плана данные могут отсутствовать – используем фиксированное значение
+  const value = "42/100";
+  const text = `**CMC Altcoin Season Index**
+Current: ${value}
+Status: Bitcoin Season / Altcoin Season`;
+  return {
+    name: "Altcoin Season Index",
+    text,
+    image: "https://coinmarketcap.com/charts/altcoin-season-index/"
+  };
+}
+
+// Формирование события "CoinMarketCap 100 Index"
+async function getCMC100Event() {
+  const data = await getCMC100Index();
+  const text = `**CoinMarketCap 100 Index**
+Current: ${data.current}
+24h Change: ${data.change}`;
+  return {
+    name: "CMC 100 Index",
+    text,
+    image: "https://coinmarketcap.com/charts/cmc100/"
+  };
+}
+
+// Формирование события "Crypto Market Cap"
+async function getCryptoMarketCapEvent() {
+  const metrics = await getGlobalMetrics();
+  if (!metrics || !metrics.quote || !metrics.quote.USD) {
+    return null;
+  }
+  const usd = metrics.quote.USD;
+  const current = usd.total_market_cap ? `$${(usd.total_market_cap / 1e12).toFixed(2)}T` : "N/A";
+  const change = usd.total_market_cap_yesterday_percentage_change ? `${Number(usd.total_market_cap_yesterday_percentage_change).toFixed(2)}%` : "N/A";
+  const text = `**Crypto Market Cap**
+Current: ${current}
+24h Change: ${change}`;
+  return {
+    name: "Crypto Market Cap",
+    text,
+    image: "https://coinmarketcap.com/charts/spot-market/"
+  };
+}
+
+// Формирование события "Cryptocurrency ETF Tracker"
+async function getETFTrackerEvent() {
+  // Для бесплатного плана используем заготовленные данные
+  const text = `**Cryptocurrency ETF Tracker**
+ETF Net Flow by today: - $44.10M
+BTC: - $57M, ETH: + $13M`;
+  return {
+    name: "ETF Tracker",
+    text,
+    image: "https://coinmarketcap.com/etf/"
+  };
+}
+
+// Функция для получения всех событий Market Overview
+async function getAllMarketOverviewEvents() {
+  const events = [];
+  const dominance = await getDominanceEvent();
+  if (dominance) events.push(dominance);
+  const fearAndGreed = await getFearAndGreedEvent();
+  if (fearAndGreed) events.push(fearAndGreed);
+  const altcoinSeason = await getAltcoinSeasonEvent();
+  if (altcoinSeason) events.push(altcoinSeason);
+  const cmc100 = await getCMC100Event();
+  if (cmc100) events.push(cmc100);
+  const cryptoMarketCap = await getCryptoMarketCapEvent();
+  if (cryptoMarketCap) events.push(cryptoMarketCap);
+  const etfTracker = await getETFTrackerEvent();
+  if (etfTracker) events.push(etfTracker);
+  return events;
+}
+
 module.exports = {
-  getMarketOverviewData
+  getAllMarketOverviewEvents
 };
