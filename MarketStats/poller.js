@@ -2,16 +2,27 @@
 const { getMarketOverviewData } = require('./MarketOverviewEvent');
 const logger = require('../logs/apiLogger');
 
-// Флаг активации события Market Overview
+// Флаг активации события Market Overview (устанавливается из админ‑бота)
 let isMarketOverviewActive = false;
 
-// Функция для установки активации
+// Интервал поллера
+let pollerInterval = null;
+
+// Callback-функция для отправки уведомлений (задается из бота MarketStats)
+let notificationCallback = null;
+
+// Устанавливает активность события
 function setMarketOverviewActive(active) {
   isMarketOverviewActive = active;
   logger.info(`Market Overview active: ${active}`);
 }
 
-// Функция поллинга
+// Позволяет задать callback для отправки уведомлений
+function setNotificationCallback(callback) {
+  notificationCallback = callback;
+}
+
+// Основная функция поллинга: получает данные и отправляет уведомление, если событие активно
 async function pollMarketOverview() {
   if (!isMarketOverviewActive) {
     logger.info("Market Overview is not active. Skipping poll cycle.");
@@ -25,21 +36,24 @@ async function pollMarketOverview() {
       output += `• **${event.name}:** ${event.value}\n`;
       output += `Chart: ${event.chartUrl}\n\n`;
     }
-    // Здесь необходимо реализовать отправку уведомления через бота MarketStats.
-    // Например, можно экспортировать функцию sendMarketOverviewNotification(output) из данного модуля и вызывать её в боте.
-    logger.info("Market Overview Update:\n" + output);
+    if (notificationCallback) {
+      await notificationCallback(output);
+    } else {
+      logger.warn("Notification callback not set.");
+    }
   } catch (err) {
     logger.error("Error in Market Overview poller: " + err.message);
   }
 }
 
-let pollerInterval = null;
+// Запускает поллер с заданным интервалом (в мс)
 function startPoller(intervalMs) {
   if (pollerInterval) clearInterval(pollerInterval);
   pollerInterval = setInterval(pollMarketOverview, intervalMs);
   logger.info(`Market Overview poller started with interval ${intervalMs} ms.`);
 }
 
+// Останавливает поллер
 function stopPoller() {
   if (pollerInterval) {
     clearInterval(pollerInterval);
@@ -51,5 +65,6 @@ function stopPoller() {
 module.exports = {
   setMarketOverviewActive,
   startPoller,
-  stopPoller
+  stopPoller,
+  setNotificationCallback
 };
