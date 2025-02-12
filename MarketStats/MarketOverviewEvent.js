@@ -6,9 +6,9 @@ const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fet
 const logger = require('../logs/apiLogger');
 require('dotenv').config({ path: __dirname + '/../config/.env' });
 
-const API_KEY = process.env.CMC_API_KEY; // CoinMarketCap API-ключ должен быть указан в .env
+const API_KEY = process.env.COINMARKETCAP_API_KEY; // CoinMarketCap API-ключ должен быть указан в .env
 if (!API_KEY) {
-  logger.error("CMC_API_KEY is not defined in .env");
+  logger.error("COINMARKETCAP_API_KEY is not defined in .env");
   process.exit(1);
 }
 
