@@ -1,7 +1,4 @@
-// ====================
 // MarketStats/poller.js
-// ====================
-
 const { getMarketOverviewData } = require('./MarketOverviewEvent');
 const logger = require('../logs/apiLogger');
 const marketStatsBot = require('../bots/marketStatsBot');
@@ -11,8 +8,10 @@ require('dotenv').config({ path: __dirname + '/../config/.env' });
 let marketOverviewActive = false;
 // Интервал поллера
 let pollerInterval = null;
+// Callback для уведомлений (задан из бота)
+let notificationCallback = null;
 
-// Задаём chat_id для уведомлений (должен быть указан в .env как MARKET_STATS_CHAT_ID)
+// Задаём chat_id для уведомлений (MARKET_STATS_CHAT_ID должен быть указан в .env)
 const targetChatId = process.env.MARKET_STATS_CHAT_ID;
 if (!targetChatId) {
   logger.error("MARKET_STATS_CHAT_ID is not defined in .env");
@@ -21,12 +20,11 @@ if (!targetChatId) {
 
 /**
  * Устанавливает активность события Market Overview.
- * Если активируется – запускается поллер с интервалом 100000 мс,
- * если деактивируется – поллер останавливается.
- * @param {boolean} active 
+ * Если активируется, запускается поллер с интервалом 100000 мс.
  */
 function setMarketOverviewActive(active) {
   marketOverviewActive = active;
+  logger.info(`Market Overview active: ${active}`);
   if (active) {
     startPoller(100000);
   } else {
@@ -35,8 +33,14 @@ function setMarketOverviewActive(active) {
 }
 
 /**
+ * Позволяет задать callback для отправки уведомлений.
+ */
+function setNotificationCallback(callback) {
+  notificationCallback = callback;
+}
+
+/**
  * Запускает поллер с заданным интервалом (в мс).
- * @param {number} intervalMs 
  */
 function startPoller(intervalMs) {
   if (pollerInterval) clearInterval(pollerInterval);
@@ -57,7 +61,7 @@ function stopPoller() {
 
 /**
  * Основная функция поллинга.
- * Если событие активно, получает данные обзора рынка и для каждого события отправляет уведомление.
+ * Если событие активно, получает данные обзора и отправляет уведомление.
  */
 async function pollMarketOverview() {
   if (!marketOverviewActive) {
@@ -66,35 +70,18 @@ async function pollMarketOverview() {
   }
   try {
     const overviewData = await getMarketOverviewData();
-    // Для каждого события в полученных данных отправляем отдельное уведомление
+    let output = "📊 **Market Overview Update**\n\n";
     for (const key in overviewData) {
       if (overviewData.hasOwnProperty(key)) {
         const event = overviewData[key];
-        // Формируем текст уведомления
-        const text = `📊 **${event.name}**\nValue: ${event.value}`;
-        try {
-          // Динамический импорт node-fetch (для совместимости с ESM)
-          const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
-          // Прикрепляем параметры w и h для стандартизации размера изображения (250x150)
-          const imageUrl = `${event.chartUrl}&w=250&h=150`;
-          const res = await fetch(imageUrl);
-          if (!res.ok) {
-            throw new Error(`Failed to fetch image from ${imageUrl}: ${res.status}`);
-          }
-          // Используем arrayBuffer() вместо buffer() (согласно предупреждению)
-          const arrayBuf = await res.arrayBuffer();
-          const buffer = Buffer.from(arrayBuf);
-          await marketStatsBot.telegram.sendPhoto(
-            targetChatId,
-            { source: buffer },
-            { caption: text, parse_mode: 'Markdown' }
-          );
-        } catch (imgErr) {
-          logger.error("Error sending event notification (photo): " + imgErr.message);
-          // Если загрузка фото не удалась – отправляем текстовое уведомление
-          await marketStatsBot.telegram.sendMessage(targetChatId, text, { parse_mode: 'Markdown' });
-        }
+        output += `• **${event.name}:** ${event.value}\n`;
+        output += `Chart: ${event.chartUrl}\n\n`;
       }
+    }
+    if (notificationCallback) {
+      await notificationCallback(output);
+    } else {
+      logger.warn("Notification callback not set.");
     }
   } catch (err) {
     logger.error("Error in Market Overview poller: " + err.message);
@@ -104,5 +91,6 @@ async function pollMarketOverview() {
 module.exports = {
   setMarketOverviewActive,
   startPoller,
-  stopPoller
+  stopPoller,
+  setNotificationCallback
 };
