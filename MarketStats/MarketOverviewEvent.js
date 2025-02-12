@@ -1,5 +1,8 @@
 // MarketStats/MarketOverviewEvent.js
-const { default: fetch } = require('node-fetch'); // убедитесь, что установлен node-fetch версии 2.x или используйте динамический импорт для v3
+
+// Используем динамический импорт для node‑fetch (подходит для версии 3)
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+
 const logger = require('../logs/apiLogger');
 require('dotenv').config({ path: __dirname + '/../config/.env' });
 
