@@ -1,69 +1,55 @@
 // MarketStats/poller.js
-require('dotenv').config({ path: __dirname + '/../config/.env' });
-const { fetchGlobalMetrics } = require('../src/api/coinmarketcap');
-const { processMarketStatsEvent } = require('./events');
-const logger = console;
+const { getMarketOverviewData } = require('./MarketOverviewEvent');
+const logger = require('../logs/apiLogger');
 
-const DEFAULT_GRAPH_URL = 'https://via.placeholder.com/150';
+// Флаг активации события Market Overview
+let isMarketOverviewActive = false;
 
-async function pollData() {
-  logger.info("MarketStats Poller: Starting poll cycle...");
+// Функция для установки активации
+function setMarketOverviewActive(active) {
+  isMarketOverviewActive = active;
+  logger.info(`Market Overview active: ${active}`);
+}
+
+// Функция поллинга
+async function pollMarketOverview() {
+  if (!isMarketOverviewActive) {
+    logger.info("Market Overview is not active. Skipping poll cycle.");
+    return;
+  }
   try {
-    const globalMetrics = await fetchGlobalMetrics();
-    if (globalMetrics && globalMetrics.quote && globalMetrics.quote.USD) {
-      const usdData = globalMetrics.quote.USD;
-      logger.info("MarketStats Poller: Received global metrics data.");
-      
-      // Событие для глобального Market Cap
-      const marketCapEvent = {
-        type: 'crypto_market_cap',
-        asset: 'GLOBAL',
-        event: 'Crypto Market Cap Update',
-        value: usdData.total_market_cap,
-        change: 'N/A',
-        period: '1min',
-        graph_url: DEFAULT_GRAPH_URL,
-        timestamp: Date.now(),
-        settings: { active: true }
-      };
-      processMarketStatsEvent(marketCapEvent);
-      
-      // Событие для Bitcoin Dominance
-      const btcDominanceEvent = {
-        type: 'bitcoin_dominance',
-        asset: 'GLOBAL',
-        event: 'Bitcoin Dominance Update',
-        value: usdData.bitcoin_dominance,
-        change: 'N/A',
-        period: '1min',
-        graph_url: DEFAULT_GRAPH_URL,
-        timestamp: Date.now(),
-        settings: { active: true }
-      };
-      processMarketStatsEvent(btcDominanceEvent);
-      
-      // Событие для 24h Total Volume
-      const volumeEvent = {
-        type: 'total_volume_24h',
-        asset: 'GLOBAL',
-        event: 'Total Volume 24h Update',
-        value: usdData.total_volume_24h,
-        change: 'N/A',
-        period: '1min',
-        graph_url: DEFAULT_GRAPH_URL,
-        timestamp: Date.now(),
-        settings: { active: true }
-      };
-      processMarketStatsEvent(volumeEvent);
-      
-    } else {
-      logger.info("MarketStats Poller: No global metrics data received.");
+    const eventsData = await getMarketOverviewData();
+    let output = "📊 **Market Overview Update**\n\n";
+    for (const key in eventsData) {
+      const event = eventsData[key];
+      output += `• **${event.name}:** ${event.value}\n`;
+      output += `Chart: ${event.chartUrl}\n\n`;
     }
-  } catch (error) {
-    logger.error(`MarketStats Poller: Error during poll cycle: ${error.message}`);
+    // Здесь необходимо реализовать отправку уведомления через бота MarketStats.
+    // Например, можно экспортировать функцию sendMarketOverviewNotification(output) из данного модуля и вызывать её в боте.
+    logger.info("Market Overview Update:\n" + output);
+  } catch (err) {
+    logger.error("Error in Market Overview poller: " + err.message);
   }
 }
 
-setInterval(pollData, 60000);
-pollData(); // Запускаем сразу один цикл для проверки
-logger.info("MarketStats poller started.");
+let pollerInterval = null;
+function startPoller(intervalMs) {
+  if (pollerInterval) clearInterval(pollerInterval);
+  pollerInterval = setInterval(pollMarketOverview, intervalMs);
+  logger.info(`Market Overview poller started with interval ${intervalMs} ms.`);
+}
+
+function stopPoller() {
+  if (pollerInterval) {
+    clearInterval(pollerInterval);
+    pollerInterval = null;
+    logger.info("Market Overview poller stopped.");
+  }
+}
+
+module.exports = {
+  setMarketOverviewActive,
+  startPoller,
+  stopPoller
+};
