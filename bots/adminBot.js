@@ -356,41 +356,6 @@ bot.action('back_from_status', async (ctx) => {
 });
 
 // ====================
-// ОБРАБОТКА КНОПКИ "Activate Bots" – подменю
-// ====================
-bot.action('menu_activate_bots', (ctx) => {
-  const text = "Activate Bots:\nSelect a bot to activate:";
-  const keyboard = Markup.inlineKeyboard([
-    [
-      // Для MarketStats используем URL‑кнопку для перехода в соответствующий бот
-      Markup.button.url("MarketStats", "https://t.me/CryptoHawk_market_bot?start=START"),
-      Markup.button.url("OnChain", "https://t.me/CryptoHawkOnChainBot?start=START")
-    ],
-    [
-      Markup.button.url("CEX Screen", "https://t.me/CryptoHawk_cex_bot?start=START"),
-      Markup.button.url("DEX Screen", "https://t.me/CryptoHawkDEXBot?start=START")
-    ],
-    [
-      Markup.button.url("News", "https://t.me/CryptoHawkNewsBot?start=START"),
-      Markup.button.url("Trends", "https://t.me/CryptoHawkTrendsBot?start=START")
-    ],
-    [
-      Markup.button.callback("← Back", "back_from_activate")
-    ]
-  ]);
-  // Обновляем текущее сообщение подменю
-  return ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
-});
-
-// ====================
-// ОБРАБОТКА КНОПКИ "← Back" для подменю "Activate Bots"
-// ====================
-bot.action('back_from_activate', (ctx) => {
-  ctx.answerCbQuery();
-  showMainMenu(ctx);
-});
-
-// ====================
 // ОБРАБОТКА ПОДМЕНЮ "MarketStats"
 // ====================
 bot.action('menu_marketstats', (ctx) => {
@@ -398,6 +363,9 @@ bot.action('menu_marketstats', (ctx) => {
   showMarketStatsMenu(ctx);
 });
 
+// ====================
+// Генерация и отображение меню MarketStats
+// ====================
 function showMarketStatsMenu(ctx) {
   const text = "MarketStats Settings:\nToggle market events:";
   const keyboard = Markup.inlineKeyboard([
@@ -422,7 +390,6 @@ function showMarketStatsMenu(ctx) {
       Markup.button.callback(getMarketToggleLabel("Bitcoin Dominance"), "toggle_bitcoin_dominance")
     ],
     [
-      // Обработка переключения для Market Overview (с вызовом setMarketOverviewActive)
       Markup.button.callback(getMarketToggleLabel("Market Overview"), "toggle_market_overview")
     ],
     [
@@ -432,32 +399,29 @@ function showMarketStatsMenu(ctx) {
   ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
 }
 
+// ====================
+// Формирование текста кнопки (✅ / ❌)
+// ====================
 function getMarketToggleLabel(label) {
   const key = marketStatsCategoryMapping[label];
   const setting = marketStatsSettings[key] || { active: false };
-  return setting.active ? `✅${label}` : `❌${label}`;
+  return setting.active ? `✅ ${label}` : `❌ ${label}`;
 }
 
 // ====================
-// Обработчик переключения событий
+// Переключение событий + запуск поллера
 // ====================
 function toggleMarketEvent(ctx, key, label) {
   marketStatsSettings[key].active = !marketStatsSettings[key].active;
   ctx.answerCbQuery(`${label} now ${marketStatsSettings[key].active ? 'ENABLED' : 'DISABLED'}`);
 
-  // Пересчитываем активные события
-  const activeEvents = Object.keys(marketStatsSettings)
-    .filter(k => marketStatsSettings[k].active);
-
-  if (activeEvents.length > 0) {
-    startPoller(100000, activeEvents); // Запуск поллера с активными событиями
-  } else {
-    stopPoller(); // Если нет активных событий, поллер выключается
-  }
-
+  updateActiveEvents(getActiveMarketStatsEvents());
   showMarketStatsMenu(ctx);
 }
 
+// ====================
+// Переключатели событий
+// ====================
 bot.action('toggle_open_interest', (ctx) => toggleMarketEvent(ctx, "open_interest", "Open Interest"));
 bot.action('toggle_top_oi', (ctx) => toggleMarketEvent(ctx, "top_oi", "Top OI"));
 bot.action('toggle_top_funding', (ctx) => toggleMarketEvent(ctx, "top_funding", "Top Funding"));
@@ -470,28 +434,37 @@ bot.action('toggle_eth_gas', (ctx) => toggleMarketEvent(ctx, "eth_gas", "ETH Gas
 bot.action('toggle_bitcoin_dominance', (ctx) => toggleMarketEvent(ctx, "bitcoin_dominance", "Bitcoin Dominance"));
 
 // ====================
-// Обработка переключения кнопки "Market Overview"
+// Обработка Market Overview
 // ====================
 bot.action('toggle_market_overview', (ctx) => {
   marketStatsSettings.market_overview.active = !marketStatsSettings.market_overview.active;
   setMarketOverviewActive(marketStatsSettings.market_overview.active);
   ctx.answerCbQuery(`Market Overview now ${marketStatsSettings.market_overview.active ? 'ENABLED' : 'DISABLED'}`);
 
-  // Пересчитываем активные события
-  const activeEvents = Object.keys(marketStatsSettings)
-    .filter(k => marketStatsSettings[k].active);
-
-  if (activeEvents.length > 0) {
-    startPoller(100000, activeEvents); // Запуск поллера с активными событиями
-  } else {
-    stopPoller(); // Если нет активных событий, поллер выключается
-  }
-
+  updateActiveEvents(getActiveMarketStatsEvents());
   showMarketStatsMenu(ctx);
 });
 
 // ====================
-// Кнопка "Back"
+// Получение списка активных событий
+// ====================
+function getActiveMarketStatsEvents() {
+  return Object.keys(marketStatsSettings).filter(key => marketStatsSettings[key].active);
+}
+
+// ====================
+// Обновление активных событий и запуск поллера
+// ====================
+function updateActiveEvents(activeEvents) {
+  if (activeEvents.length > 0) {
+    startPoller(100000, activeEvents);
+  } else {
+    stopPoller();
+  }
+}
+
+// ====================
+// Обработка кнопки "Back" в MarketStats
 // ====================
 bot.action('back_from_marketstats', (ctx) => {
   ctx.answerCbQuery();
