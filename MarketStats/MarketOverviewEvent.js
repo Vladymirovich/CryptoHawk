@@ -2,19 +2,17 @@ const axios = require('axios');
 require('dotenv').config();
 const logger = require('../logs/apiLogger');
 
-const COINMARKETCAP_API_KEY = process.env.COINMARKETCAP_API_KEY;
+const API_KEY = process.env.COINMARKETCAP_API_KEY;
 const API_BASE_URL = "https://pro-api.coinmarketcap.com";
 
-// ====================
-// 🚀 Функция запроса данных с API CoinMarketCap
-// ====================
+// ✅ Запрос данных с API CoinMarketCap
 async function fetchMarketData(activeEvents) {
   const results = [];
 
   try {
     if (activeEvents.includes("bitcoin_dominance")) {
       const btcData = await axios.get(`${API_BASE_URL}/v1/global-metrics/quotes/latest`, {
-        headers: { 'X-CMC_PRO_API_KEY': COINMARKETCAP_API_KEY }
+        headers: { 'X-CMC_PRO_API_KEY': API_KEY }
       });
 
       const btcDominance = btcData.data.data.btc_dominance.toFixed(2);
@@ -27,7 +25,7 @@ async function fetchMarketData(activeEvents) {
 
     if (activeEvents.includes("cmc100_index")) {
       const cmcData = await axios.get(`${API_BASE_URL}/v3/index/cmc100-latest`, {
-        headers: { 'X-CMC_PRO_API_KEY': COINMARKETCAP_API_KEY }
+        headers: { 'X-CMC_PRO_API_KEY': API_KEY }
       });
 
       const cmc100Index = cmcData.data.data.price.toFixed(2);
@@ -40,7 +38,7 @@ async function fetchMarketData(activeEvents) {
 
     if (activeEvents.includes("cmc_fear_greed")) {
       const fearGreedData = await axios.get(`${API_BASE_URL}/v3/fear-and-greed/latest`, {
-        headers: { 'X-CMC_PRO_API_KEY': COINMARKETCAP_API_KEY }
+        headers: { 'X-CMC_PRO_API_KEY': API_KEY }
       });
 
       const fearGreedIndex = fearGreedData.data.data.value;
