@@ -1,4 +1,3 @@
-const fetch = require('node-fetch');
 const logger = require('../logs/apiLogger');
 const fs = require('fs');
 const path = require('path');
@@ -18,7 +17,26 @@ const eventEndpoints = {
 };
 
 // ====================
-// Получение данных по API
+// Получение данных по API (Используем import вместо require)
+// ====================
+async function fetchData(url) {
+  try {
+    const fetch = (await import('node-fetch')).default;
+    const response = await fetch(url, {
+      headers: { "X-CMC_PRO_API_KEY": API_KEY }
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    return await response.json();
+  } catch (err) {
+    logger.error(`❌ Failed to fetch data: ${err.message}`);
+    return null;
+  }
+}
+
+// ====================
+// Получение данных по активным событиям
 // ====================
 async function getMarketOverviewData(activeEvents) {
   const eventData = [];
@@ -26,26 +44,17 @@ async function getMarketOverviewData(activeEvents) {
   for (const event of activeEvents) {
     if (!eventEndpoints[event]) continue;
 
-    try {
-      const response = await fetch(eventEndpoints[event], {
-        headers: { "X-CMC_PRO_API_KEY": API_KEY }
-      });
+    const data = await fetchData(eventEndpoints[event]);
+    if (!data) continue;
 
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const imagePath = path.join(CHARTS_DIR, `${event}.png`);
+    await generateChart(event, data, imagePath);
 
-      const data = await response.json();
-      const imagePath = path.join(CHARTS_DIR, `${event}.png`);
-      await generateChart(event, data, imagePath);
-
-      eventData.push({
-        key: event,
-        text: formatEventText(event, data),
-        image: imagePath
-      });
-
-    } catch (err) {
-      logger.error(`❌ Failed to fetch data for ${event}: ${err.message}`);
-    }
+    eventData.push({
+      key: event,
+      text: formatEventText(event, data),
+      image: imagePath
+    });
   }
 
   return eventData;
