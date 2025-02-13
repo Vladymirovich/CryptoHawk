@@ -313,48 +313,47 @@ bot.action('menu_status', async (ctx) => {
 // Функция генерации изображения Gauge-графиков через Chart.js
 // ====================
 async function generateGaugeImage(value, label) {
-  const width = 400;
+  const width = 300;
   const height = 250;
   const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height });
 
-  let color;
-  if (value < 50) {
-    color = "#00FF00";
-  } else if (value < 80) {
-    color = "#FFA500";
-  } else {
-    color = "#FF0000";
-  }
-
-  const configuration = {
-    type: 'doughnut',
-    data: {
-      datasets: [{
-        data: [value, 100 - value],
-        backgroundColor: [color, "#2E2E2E"],
-        borderWidth: 0
-      }]
-    },
-    options: {
-      responsive: false,
-      maintainAspectRatio: false,
-      circumference: 180,
-      rotation: 270,
-      cutout: '75%',
-      plugins: {
-        title: {
-          display: true,
-          text: label,
-          color: "#ffffff",
-          font: { size: 20, weight: "bold" }
-        },
-        legend: { display: false }
-      }
+  // Определение цвета в зависимости от значения
+    let color;
+    if (value < 50) {
+        color = "#00FF00"; // Зеленый (Низкая нагрузка)
+    } else if (value < 80) {
+        color = "#FFA500"; // Оранжевый (Средняя нагрузка)
+    } else {
+        color = "#FF0000"; // Красный (Высокая нагрузка)
     }
-  };
 
-  return await chartJSNodeCanvas.renderToBuffer(configuration);
-}
+    // Конфигурация графика
+    const configuration = {
+        type: 'doughnut',
+        data: {
+            datasets: [{
+                data: [value, 100 - value],
+                backgroundColor: [color, "#2E2E2E"], // Основной цвет + темный фон
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: false,
+            maintainAspectRatio: false,
+            circumference: 180, // Полукруглый график
+            rotation: 270,
+            cutout: '75%',
+            plugins: {
+                title: {
+                    display: true,
+                    text: label,
+                    color: "#ffffff",
+                    font: { size: 20, weight: "bold" }
+                },
+                legend: { display: false }
+            }
+        }
+    };
 
 // ====================
 // Функция сбора метрик сервера
