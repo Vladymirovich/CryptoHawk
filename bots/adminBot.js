@@ -432,30 +432,58 @@ function showMarketStatsMenu(ctx) {
     ]
   ]);
 
-  ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
+  try {
+    ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
+  } catch (error) {
+    console.error("❌ Ошибка обновления меню MarketStats:", error.message);
+  }
 }
 
 // ====================
 // Формирование текста кнопки (✅ / ❌)
 // ====================
 function getMarketToggleLabel(label) {
-  return marketStatsSettings[label].active ? `✅ ${label}` : `❌ ${label}`;
+  const key = marketStatsCategoryMapping[label]; // Маппинг названия в ключ
+  if (!key || !marketStatsSettings[key]) {
+    console.error(`❌ Ошибка: Ключ '${label}' не найден в marketStatsSettings!`);
+    return `❌ ${label}`;
+  }
+  return marketStatsSettings[key].active ? `✅ ${label}` : `❌ ${label}`;
 }
 
 // ====================
 // Получение активных событий
 // ====================
 function getActiveMarketStatsEvents() {
-  return Object.keys(marketStatsSettings).filter(key => marketStatsSettings[key].active);
+  return Object.keys(marketStatsSettings).filter(key => marketStatsSettings[key]?.active);
+}
+
+// ====================
+// Обновление активных событий в MarketStats Bot
+// ====================
+function updateMarketStatsBot() {
+  const activeEvents = getActiveMarketStatsEvents();
+  if (marketStatsBot && marketStatsBot.updateActiveEvents) {
+    marketStatsBot.updateActiveEvents(activeEvents);
+  } else {
+    console.error("❌ Ошибка: MarketStats Bot не найден или updateActiveEvents отсутствует.");
+  }
 }
 
 // ====================
 // Универсальная функция переключения событий + запуск поллера
 // ====================
 function toggleMarketEvent(ctx, key, label) {
+  if (!marketStatsSettings[key]) {
+    console.error(`❌ Ошибка: Ключ '${key}' не найден в marketStatsSettings!`);
+    ctx.answerCbQuery(`⚠ Ошибка: ${label} не найден в настройках.`);
+    return;
+  }
+
+  // Переключаем состояние события
   marketStatsSettings[key].active = !marketStatsSettings[key].active;
 
-  ctx.answerCbQuery(`${label} now ${marketStatsSettings[key].active ? 'ENABLED' : 'DISABLED'}`);
+  ctx.answerCbQuery(`${label} теперь ${marketStatsSettings[key].active ? 'Включен ✅' : 'Выключен ❌'}`);
 
   // 🔄 ОБНОВЛЯЕМ MarketStats Bot!
   updateMarketStatsBot();
@@ -465,29 +493,12 @@ function toggleMarketEvent(ctx, key, label) {
 }
 
 // ====================
-// Обновление MarketStats Bot
-// ====================
-function updateMarketStatsBot() {
-  const activeEvents = getActiveMarketStatsEvents();
-  const marketStatsBot = require('../bots/marketStatsBot');
-  if (marketStatsBot.updateActiveEvents) {
-    marketStatsBot.updateActiveEvents(activeEvents);
-  }
-}
-
-// ====================
 // Динамическое создание обработчиков кнопок
 // ====================
-Object.keys(marketStatsSettings).forEach(key => {
-  bot.action(`toggle_${key}`, (ctx) => toggleMarketEvent(ctx, key, key.replace(/_/g, " ")));
+Object.keys(marketStatsCategoryMapping).forEach(label => {
+  const key = marketStatsCategoryMapping[label];
+  bot.action(`toggle_${key}`, (ctx) => toggleMarketEvent(ctx, key, label));
 });
-
-// ====================
-// Экспортируем настройки для MarketStats Bot
-// ====================
-module.exports = {
-  getActiveMarketStatsEvents
-};
 
 // ====================
 // Обработка кнопки "Back" в MarketStats
@@ -496,6 +507,13 @@ bot.action('back_from_marketstats', (ctx) => {
   ctx.answerCbQuery();
   showMainMenu(ctx);
 });
+
+// ====================
+// Экспортируем настройки для MarketStats Bot
+// ====================
+module.exports = {
+  getActiveMarketStatsEvents
+};
 
 // ====================
 // Запуск админ-бота
