@@ -302,7 +302,7 @@ bot.action('menu_status', async (ctx) => {
 
 const si = require('systeminformation');
 const os = require('os');
-const logger = require('../logs/apiLogger');
+
 
 // ====================
 // Функция генерации Gauge-графиков через Image-Charts
