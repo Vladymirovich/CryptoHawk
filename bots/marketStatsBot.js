@@ -5,12 +5,15 @@ const { startPoller, stopPoller } = require('../MarketStats/poller');
 
 const bot = new Telegraf(process.env.TELEGRAM_MARKET_BOT_TOKEN);
 
-// ✅ Асинхронное получение активных событий (избегаем циклических зависимостей)
+// ====================
+// 🔄 Асинхронное получение активных событий
+// ====================
 async function getActiveMarketStatsEvents() {
   try {
-    const adminBot = require('../bots/adminBot'); // Динамический импорт
+    const adminBot = require('../bots/adminBot'); // Динамический импорт для предотвращения циклических зависимостей
     if (adminBot && typeof adminBot.getActiveMarketStatsEvents === 'function') {
-      return adminBot.getActiveMarketStatsEvents();
+      const activeEvents = adminBot.getActiveMarketStatsEvents();
+      return Array.isArray(activeEvents) ? activeEvents : [];
     } else {
       logger.error("❌ Ошибка: getActiveMarketStatsEvents не определена в adminBot.");
       return [];
@@ -21,12 +24,14 @@ async function getActiveMarketStatsEvents() {
   }
 }
 
-// ✅ Функция обновления активных событий
+// ====================
+// 🔄 Функция обновления активных событий
+// ====================
 async function updateActiveEvents() {
   try {
     const activeEvents = await getActiveMarketStatsEvents();
 
-    if (!activeEvents || activeEvents.length === 0) {
+    if (!Array.isArray(activeEvents) || activeEvents.length === 0) {
       stopPoller();
       logger.info("🛑 Poller остановлен (нет активных событий).");
     } else {
@@ -38,19 +43,41 @@ async function updateActiveEvents() {
   }
 }
 
+// ====================
 // 🚀 Запуск MarketStats Bot
-bot.launch()
-  .then(() => {
+// ====================
+async function launchMarketStatsBot() {
+  try {
+    await bot.launch();
     logger.info("✅ MarketStats Bot запущен.");
-    updateActiveEvents(); // 🔄 Проверяем активные события при запуске
-  })
-  .catch((error) => {
+    await updateActiveEvents(); // 🔄 Проверяем активные события при запуске
+  } catch (error) {
     if (error.response && error.response.error_code === 409) {
       logger.error("❌ Ошибка: 409 Conflict. Уже запущен другой экземпляр бота!");
     } else {
       logger.error(`❌ Ошибка запуска MarketStats Bot: ${error.message}`);
     }
-  });
+  }
+}
 
-// 🛠 Экспортируем функцию обновления активных событий
-module.exports = { updateActiveEvents };
+// ====================
+// 🛠 Обработка сигналов завершения работы
+// ====================
+process.once('SIGINT', () => {
+  bot.stop('SIGINT');
+  logger.warn('⚠️ MarketStats Bot остановлен (SIGINT).');
+});
+
+process.once('SIGTERM', () => {
+  bot.stop('SIGTERM');
+  logger.warn('⚠️ MarketStats Bot остановлен (SIGTERM).');
+});
+
+// ====================
+// Экспортируем объект бота и функцию запуска
+// ====================
+module.exports = {
+  bot,
+  launch: launchMarketStatsBot,
+  updateActiveEvents
+};
