@@ -354,6 +354,7 @@ async function generateGaugeImage(value, label) {
             }
         }
     };
+}
 
 // ====================
 // Функция сбора метрик сервера
