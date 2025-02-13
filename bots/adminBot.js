@@ -307,7 +307,7 @@ bot.action('menu_status', async (ctx) => {
 });
 
 
-const width = 400;
+const width = 300;
 const height = 250;
 
 // ====================
@@ -333,7 +333,7 @@ async function generateGaugeImage(value, label, filePath) {
             datasets: [{
                 data: [value, 100 - value],
                 backgroundColor: [color, "#333333"], // Основной цвет + серый фон
-                borderWidth: 0
+                borderWidth: 2
             }]
         },
         options: {
@@ -341,7 +341,7 @@ async function generateGaugeImage(value, label, filePath) {
             maintainAspectRatio: false,
             circumference: 180, // Полукруглый график
             rotation: 270, // Начинается сверху
-            cutout: '80%',
+            cutout: '75%',
             plugins: {
                 title: {
                     display: true,
@@ -349,12 +349,25 @@ async function generateGaugeImage(value, label, filePath) {
                     color: "#ffffff",
                     font: { size: 22, weight: "bold" }
                 },
-                legend: { display: false }
+                legend: { display: false },
+                tooltip: { enabled: false }
             },
             layout: {
                 padding: { top: 10, bottom: 10 }
-            }
+            },
+            animation: { animateRotate: true, animateScale: true }
         }
+    };
+
+    // Вставка текста с процентом внутри графика
+    ChartJSNodeCanvas.registerFont('./fonts/Arial.ttf', { family: 'Arial' });
+    configuration.plugins.datalabels = {
+        display: true,
+        color: '#FFFFFF',
+        font: { size: 32, weight: 'bold' },
+        formatter: () => `${value}%`,
+        anchor: 'center',
+        align: 'center'
     };
 
     // Генерация изображения
@@ -382,6 +395,7 @@ async function generateAllGauges(metrics) {
 }
 
 module.exports = { generateAllGauges };
+
 // ====================
 // Функция сбора метрик сервера
 // ====================
