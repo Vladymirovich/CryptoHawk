@@ -269,7 +269,7 @@ bot.action('back_from_activate', (ctx) => {
 bot.action('menu_status', async (ctx) => {
   await ctx.answerCbQuery();
   try {
-    const { text, images } = await getDetailedServerStatus(); // Теперь await внутри async
+    const { text, images } = await serverMetrics.getDetailedServerStatus(); // Теперь await внутри async
     let mediaGroup = [];
     try {
       // Загружаем изображения для Memory, CPU и Disk (для Network картинка не нужна)
