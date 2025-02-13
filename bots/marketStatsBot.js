@@ -44,12 +44,12 @@ async function updateActiveEvents() {
 }
 
 // ====================
-// 🚀 Запуск MarketStats Bot
+// 🚀 Функция запуска MarketStats Bot
 // ====================
 async function launchMarketStatsBot() {
   try {
     await bot.launch();
-    logger.info("✅ MarketStats Bot запущен.");
+    logger.info("✅ MarketStats Bot успешно запущен.");
     await updateActiveEvents(); // 🔄 Проверяем активные события при запуске
   } catch (error) {
     if (error.response && error.response.error_code === 409) {
@@ -74,7 +74,7 @@ process.once('SIGTERM', () => {
 });
 
 // ====================
-// Экспортируем объект бота и функцию запуска
+// ✅ Экспортируем функции
 // ====================
 module.exports = {
   bot,
