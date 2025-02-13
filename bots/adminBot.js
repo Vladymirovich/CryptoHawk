@@ -10,6 +10,7 @@ const http = require('http');
 const logger = require('../logs/apiLogger');
 const si = require('systeminformation');
 const os = require('os');
+const { ChartJSNodeCanvas } = require('chartjs-node-canvas');
 const statusMediaMessages = {};
 
 // ====================
