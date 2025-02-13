@@ -302,26 +302,68 @@ bot.action('menu_status', async (ctx) => {
 });
 
 // ====================
-// Функция генерации Gauge-графиков через QuickChart.io
+// Функция генерации URL для Gauge-графиков через QuickChart.io
 // ====================
 function generateGaugeUrl(value, label) {
+  // Определение цвета в зависимости от значения
+  let color;
+  if (value < 50) {
+    color = "#00FF00"; // Зеленый (Низкая загрузка)
+  } else if (value < 80) {
+    color = "#FFA500"; // Оранжевый (Средняя загрузка)
+  } else {
+    color = "#FF0000"; // Красный (Высокая загрузка)
+  }
+
+  // Генерация URL для запроса к QuickChart.io
   return `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify({
-    type: 'gauge',
+    type: "gauge",
     data: {
       datasets: [{
         data: [value],
-        backgroundColor: ['#36A2EB'],
+        backgroundColor: [color],
         borderWidth: 2
       }]
     },
     options: {
-      needle: { radiusPercentage: 2, widthPercentage: 3, lengthPercentage: 80 },
-      valueLabel: { display: true, backgroundColor: 'black', color: 'white', fontSize: 14, fontStyle: 'bold' },
-      title: { display: true, text: label, fontSize: 16, fontColor: '#ffffff' },
+      needle: {
+        radiusPercentage: 2,
+        widthPercentage: 3,
+        lengthPercentage: 80
+      },
+      valueLabel: {
+        display: true,
+        backgroundColor: "black",
+        color: "white",
+        fontSize: 20,
+        fontStyle: "bold"
+      },
+      title: {
+        display: true,
+        text: label,
+        fontSize: 18,
+        fontColor: "#ffffff"
+      },
       legend: { display: false },
       cutoutPercentage: 80
     }
   }))}&w=300&h=200`;
+}
+
+// ====================
+// Хелпер: получить изображение по URL как Buffer с обработкой ошибки
+// ====================
+async function fetchImage(url) {
+  try {
+    const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Failed to fetch image from ${url}: ${res.status}`);
+    const arrayBuffer = await res.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  } catch (err) {
+    console.error("Image fetch error:", err.message);
+    throw err;
+  }
 }
 
 // ====================
