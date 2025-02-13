@@ -277,20 +277,26 @@ bot.action('menu_status', async (ctx) => {
   try {
     const { text, images } = await getDetailedServerStatus();
     let mediaGroup = [];
+
     try {
-      const memBuffer = await fetchImage(images.mem);
-      const cpuBuffer = await fetchImage(images.cpu);
-      const diskBuffer = await fetchImage(images.disk);
-      mediaGroup = [
-        { type: 'photo', media: { source: memBuffer }, caption: 'Memory Usage' },
-        { type: 'photo', media: { source: cpuBuffer }, caption: 'CPU Load' },
-        { type: 'photo', media: { source: diskBuffer }, caption: 'Disk Usage' }
-      ];
-      const sentMedia = await ctx.replyWithMediaGroup(mediaGroup);
-      statusMediaMessages[ctx.chat.id] = sentMedia.map(msg => msg.message_id);
+      if (images.mem && images.cpu && images.disk) {
+        const memBuffer = await generateGaugeImage(images.mem, 'Memory Usage');
+        const cpuBuffer = await generateGaugeImage(images.cpu, 'CPU Load');
+        const diskBuffer = await generateGaugeImage(images.disk, 'Disk Usage');
+
+        mediaGroup = [
+          { type: 'photo', media: { source: memBuffer }, caption: 'Memory Usage' },
+          { type: 'photo', media: { source: cpuBuffer }, caption: 'CPU Load' },
+          { type: 'photo', media: { source: diskBuffer }, caption: 'Disk Usage' }
+        ];
+
+        const sentMedia = await ctx.replyWithMediaGroup(mediaGroup);
+        statusMediaMessages[ctx.chat.id] = sentMedia.map(msg => msg.message_id);
+      }
     } catch (imgErr) {
-      console.error("Error fetching images, sending text only:", imgErr.message);
+      console.error("Error generating images, sending text only:", imgErr.message);
     }
+
     await ctx.reply(text, {
       parse_mode: 'Markdown',
       disable_web_page_preview: true,
@@ -306,74 +312,48 @@ bot.action('menu_status', async (ctx) => {
 // ====================
 // Функция генерации изображения Gauge-графиков через Chart.js
 // ====================
-async function generateGaugeImage(value, label, filePath) {
-    const width = 400; // Ширина изображения
-    const height = 250; // Высота изображения
-    const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height });
+async function generateGaugeImage(value, label) {
+  const width = 400;
+  const height = 250;
+  const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height });
 
-    // Определение цвета в зависимости от значения
-    let color;
-    if (value < 50) {
-        color = "#00FF00"; // Зеленый (Низкая нагрузка)
-    } else if (value < 80) {
-        color = "#FFA500"; // Оранжевый (Средняя нагрузка)
-    } else {
-        color = "#FF0000"; // Красный (Высокая нагрузка)
-    }
-
-    // Конфигурация графика
-    const configuration = {
-        type: 'doughnut',
-        data: {
-            datasets: [{
-                data: [value, 100 - value],
-                backgroundColor: [color, "#2E2E2E"], // Основной цвет + темный фон
-                borderWidth: 0
-            }]
-        },
-        options: {
-            responsive: false,
-            maintainAspectRatio: false,
-            circumference: 180, // Полукруглый график
-            rotation: 270,
-            cutout: '75%',
-            plugins: {
-                title: {
-                    display: true,
-                    text: label,
-                    color: "#ffffff",
-                    font: { size: 20, weight: "bold" }
-                },
-                legend: { display: false }
-            }
-        }
-    };
-
-    // Генерация изображения
-    const imageBuffer = await chartJSNodeCanvas.renderToBuffer(configuration);
-
-    // Проверяем перед сохранением
-    if (filePath) {
-        fs.writeFileSync(filePath, imageBuffer);
-    }
-
-    return imageBuffer;
-}
-
-// ====================
-// Хелпер: получить изображение по URL как Buffer с обработкой ошибки
-// ====================
-async function fetchImage(url) {
-  try {
-    const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Failed to fetch image from ${url}: ${res.status}`);
-    const arrayBuffer = await res.arrayBuffer();
-    return Buffer.from(arrayBuffer);
-  } catch (err) {
-    console.error("Image fetch error:", err.message);
-    return null; // Теперь не будет ломать код, если изображение не загрузилось
+  let color;
+  if (value < 50) {
+    color = "#00FF00";
+  } else if (value < 80) {
+    color = "#FFA500";
+  } else {
+    color = "#FF0000";
   }
+
+  const configuration = {
+    type: 'doughnut',
+    data: {
+      datasets: [{
+        data: [value, 100 - value],
+        backgroundColor: [color, "#2E2E2E"],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: false,
+      maintainAspectRatio: false,
+      circumference: 180,
+      rotation: 270,
+      cutout: '75%',
+      plugins: {
+        title: {
+          display: true,
+          text: label,
+          color: "#ffffff",
+          font: { size: 20, weight: "bold" }
+        },
+        legend: { display: false }
+      }
+    }
+  };
+
+  return await chartJSNodeCanvas.renderToBuffer(configuration);
 }
 
 // ====================
