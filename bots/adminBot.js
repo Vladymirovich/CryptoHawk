@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const logger = require('../logs/apiLogger');
-const { text, images } = await getDetailedServerStatus() = require('../utils/serverMetrics'); // Файл с метриками;
+const { getDetailedServerStatus } = require('../utils/serverMetrics'); // Импорт функции
 
 // Проверка наличия токена админ-бота
 if (!process.env.TELEGRAM_BOSS_BOT_TOKEN) {
@@ -269,6 +269,7 @@ bot.action('back_from_activate', (ctx) => {
 bot.action('menu_status', async (ctx) => {
   await ctx.answerCbQuery();
   try {
+    const { text, images } = await getDetailedServerStatus(); // Теперь await внутри async
     let mediaGroup = [];
     try {
       // Загружаем изображения для Memory, CPU и Disk (для Network картинка не нужна)
