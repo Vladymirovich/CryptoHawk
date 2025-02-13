@@ -277,26 +277,23 @@ bot.action('menu_status', async (ctx) => {
   try {
     const { text, images } = await getDetailedServerStatus();
     let mediaGroup = [];
-
     try {
-      if (images.mem && images.cpu && images.disk) {
-        const memBuffer = await generateGaugeImage(images.mem, 'Memory Usage');
-        const cpuBuffer = await generateGaugeImage(images.cpu, 'CPU Load');
-        const diskBuffer = await generateGaugeImage(images.disk, 'Disk Usage');
+      // Генерируем изображения
+      const { memPath, cpuPath, diskPath } = await generateAllGauges(images);
 
-        mediaGroup = [
-          { type: 'photo', media: { source: memBuffer }, caption: 'Memory Usage' },
-          { type: 'photo', media: { source: cpuBuffer }, caption: 'CPU Load' },
-          { type: 'photo', media: { source: diskBuffer }, caption: 'Disk Usage' }
-        ];
+      mediaGroup = [
+        { type: 'photo', media: { source: memPath }, caption: 'Memory Usage' },
+        { type: 'photo', media: { source: cpuPath }, caption: 'CPU Load' },
+        { type: 'photo', media: { source: diskPath }, caption: 'Disk Usage' }
+      ];
 
-        const sentMedia = await ctx.replyWithMediaGroup(mediaGroup);
-        statusMediaMessages[ctx.chat.id] = sentMedia.map(msg => msg.message_id);
-      }
+      // Отправляем группу изображений
+      const sentMedia = await ctx.replyWithMediaGroup(mediaGroup);
+      statusMediaMessages[ctx.chat.id] = sentMedia.map(msg => msg.message_id);
     } catch (imgErr) {
       console.error("Error generating images, sending text only:", imgErr.message);
     }
-
+    
     await ctx.reply(text, {
       parse_mode: 'Markdown',
       disable_web_page_preview: true,
@@ -310,14 +307,15 @@ bot.action('menu_status', async (ctx) => {
 });
 
 // ====================
-// Функция генерации изображения Gauge-графиков через Chart.js
+// Функция генерации красивых Gauge-графиков через Chart.js
 // ====================
-async function generateGaugeImage(value, label) {
-  const width = 300;
-  const height = 250;
-  const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height });
+const width = 400; // Ширина изображения
+const height = 250; // Высота изображения
 
-  // Определение цвета в зависимости от значения
+async function generateGaugeImage(value, label, filePath) {
+    const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height });
+
+    // Определение цвета в зависимости от значения
     let color;
     if (value < 50) {
         color = "#00FF00"; // Зеленый (Низкая нагрузка)
@@ -354,7 +352,32 @@ async function generateGaugeImage(value, label) {
             }
         }
     };
+
+    // Генерация изображения
+    const imageBuffer = await chartJSNodeCanvas.renderToBuffer(configuration);
+
+    // Принудительное сохранение буфера в файл
+    fs.writeFileSync(filePath, imageBuffer);
+
+    return filePath; // Возвращаем путь к файлу
 }
+
+// ====================
+// Генерация всех графиков и возврат путей к файлам
+// ====================
+async function generateAllGauges(metrics) {
+    const memFile = './charts/memory.png';
+    const cpuFile = './charts/cpu.png';
+    const diskFile = './charts/disk.png';
+
+    const memPath = await generateGaugeImage(metrics.usedMemPercentage, 'Memory Usage', memFile);
+    const cpuPath = await generateGaugeImage(metrics.cpuLoadPercent, 'CPU Load', cpuFile);
+    const diskPath = await generateGaugeImage(metrics.diskUsagePercent, 'Disk Usage', diskFile);
+
+    return { memPath, cpuPath, diskPath };
+}
+
+module.exports = { generateAllGauges };
 
 // ====================
 // Функция сбора метрик сервера
