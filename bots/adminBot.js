@@ -444,20 +444,6 @@ function getMarketToggleLabel(label) {
   return marketStatsSettings[key].active ? `✅ ${label}` : `❌ ${label}`;
 }
 
-const marketStatsSettings = {
-  open_interest: { active: false },
-  top_oi: { active: false },
-  top_funding: { active: false },
-  crypto_etfs_net_flow: { active: false },
-  crypto_market_cap: { active: false },
-  cmc_fear_greed: { active: false },
-  cmc_altcoin_season: { active: false },
-  cmc100_index: { active: false },
-  eth_gas: { active: false },
-  bitcoin_dominance: { active: false },
-  market_overview: { active: false }
-};
-
 // ✅ Гарантируем экспорт активных событий
 function getActiveMarketStatsEvents() {
   return Object.keys(marketStatsSettings).filter((key) => marketStatsSettings[key].active);
