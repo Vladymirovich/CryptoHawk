@@ -431,7 +431,7 @@ function showMarketStatsMenu(ctx) {
       Markup.button.callback("← Back", "back_from_marketstats")
     ]
   ]);
-  
+
   ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
 }
 
@@ -439,9 +439,7 @@ function showMarketStatsMenu(ctx) {
 // Формирование текста кнопки (✅ / ❌)
 // ====================
 function getMarketToggleLabel(label) {
-  const key = marketStatsCategoryMapping[label];
-  const setting = marketStatsSettings[key] || { active: false };
-  return setting.active ? `✅ ${label}` : `❌ ${label}`;
+  return marketStatsSettings[label].active ? `✅ ${label}` : `❌ ${label}`;
 }
 
 // ====================
@@ -452,58 +450,44 @@ function getActiveMarketStatsEvents() {
 }
 
 // ====================
-// Обновление активных событий и запуск/остановка поллера
-// ====================
-function updateActiveEvents() {
-  const activeEvents = getActiveMarketStatsEvents();
-
-  if (activeEvents.length > 0) {
-    startPoller(100000, activeEvents);
-  } else {
-    stopPoller();
-  }
-}
-
-// ====================
 // Универсальная функция переключения событий + запуск поллера
 // ====================
 function toggleMarketEvent(ctx, key, label) {
-  // Переключаем состояние события
   marketStatsSettings[key].active = !marketStatsSettings[key].active;
-  
-  // Обновляем состояние кнопки в UI
+
   ctx.answerCbQuery(`${label} now ${marketStatsSettings[key].active ? 'ENABLED' : 'DISABLED'}`);
 
-  // Обновляем активные события и поллер
-  updateActiveEvents();
+  // 🔄 ОБНОВЛЯЕМ MarketStats Bot!
+  updateMarketStatsBot();
 
   // Обновляем меню с измененными иконками ✅/❌
   showMarketStatsMenu(ctx);
 }
 
 // ====================
-// Список событий для кнопок
+// Обновление MarketStats Bot
 // ====================
-const marketEvents = [
-  { key: "open_interest", label: "Open Interest" },
-  { key: "top_oi", label: "Top OI" },
-  { key: "top_funding", label: "Top Funding" },
-  { key: "crypto_etfs_net_flow", label: "Crypto ETFs Net Flow" },
-  { key: "crypto_market_cap", label: "Crypto Market Cap" },
-  { key: "cmc_fear_greed", label: "CMC Fear & Greed" },
-  { key: "cmc_altcoin_season", label: "CMC Altcoin Season" },
-  { key: "cmc100_index", label: "CMC 100 Index" },
-  { key: "eth_gas", label: "ETH Gas" },
-  { key: "bitcoin_dominance", label: "Bitcoin Dominance" },
-  { key: "market_overview", label: "Market Overview" }
-];
+function updateMarketStatsBot() {
+  const activeEvents = getActiveMarketStatsEvents();
+  const marketStatsBot = require('../bots/marketStatsBot');
+  if (marketStatsBot.updateActiveEvents) {
+    marketStatsBot.updateActiveEvents(activeEvents);
+  }
+}
 
 // ====================
 // Динамическое создание обработчиков кнопок
 // ====================
-marketEvents.forEach(event => {
-  bot.action(`toggle_${event.key}`, (ctx) => toggleMarketEvent(ctx, event.key, event.label));
+Object.keys(marketStatsSettings).forEach(key => {
+  bot.action(`toggle_${key}`, (ctx) => toggleMarketEvent(ctx, key, key.replace(/_/g, " ")));
 });
+
+// ====================
+// Экспортируем настройки для MarketStats Bot
+// ====================
+module.exports = {
+  getActiveMarketStatsEvents
+};
 
 // ====================
 // Обработка кнопки "Back" в MarketStats
