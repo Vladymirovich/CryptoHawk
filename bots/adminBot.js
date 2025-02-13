@@ -306,14 +306,15 @@ bot.action('menu_status', async (ctx) => {
   }
 });
 
-// ====================
-// Функция генерации красивых Gauge-графиков через Chart.js
-// ====================
-const width = 400; // Ширина изображения
-const height = 250; // Высота изображения
 
+const width = 400;
+const height = 250;
+
+// ====================
+// Функция генерации Gauge-графиков через Chart.js
+// ====================
 async function generateGaugeImage(value, label, filePath) {
-    const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height });
+    const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height, backgroundColour: "#121212" });
 
     // Определение цвета в зависимости от значения
     let color;
@@ -331,7 +332,7 @@ async function generateGaugeImage(value, label, filePath) {
         data: {
             datasets: [{
                 data: [value, 100 - value],
-                backgroundColor: [color, "#2E2E2E"], // Основной цвет + темный фон
+                backgroundColor: [color, "#333333"], // Основной цвет + серый фон
                 borderWidth: 0
             }]
         },
@@ -339,16 +340,19 @@ async function generateGaugeImage(value, label, filePath) {
             responsive: false,
             maintainAspectRatio: false,
             circumference: 180, // Полукруглый график
-            rotation: 270,
-            cutout: '75%',
+            rotation: 270, // Начинается сверху
+            cutout: '80%',
             plugins: {
                 title: {
                     display: true,
                     text: label,
                     color: "#ffffff",
-                    font: { size: 20, weight: "bold" }
+                    font: { size: 22, weight: "bold" }
                 },
                 legend: { display: false }
+            },
+            layout: {
+                padding: { top: 10, bottom: 10 }
             }
         }
     };
@@ -356,10 +360,10 @@ async function generateGaugeImage(value, label, filePath) {
     // Генерация изображения
     const imageBuffer = await chartJSNodeCanvas.renderToBuffer(configuration);
 
-    // Принудительное сохранение буфера в файл
+    // Сохранение изображения в файл
     fs.writeFileSync(filePath, imageBuffer);
 
-    return filePath; // Возвращаем путь к файлу
+    return filePath;
 }
 
 // ====================
@@ -378,7 +382,6 @@ async function generateAllGauges(metrics) {
 }
 
 module.exports = { generateAllGauges };
-
 // ====================
 // Функция сбора метрик сервера
 // ====================
