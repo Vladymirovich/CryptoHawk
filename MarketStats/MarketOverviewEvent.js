@@ -1,89 +1,63 @@
+const axios = require('axios');
+require('dotenv').config();
 const logger = require('../logs/apiLogger');
-const fs = require('fs');
-const path = require('path');
 
-const API_KEY = process.env.COINMARKETCAP_API_KEY;
-const CHARTS_DIR = path.join(__dirname, '../charts');
-
-if (!fs.existsSync(CHARTS_DIR)) fs.mkdirSync(CHARTS_DIR);
+const COINMARKETCAP_API_KEY = process.env.COINMARKETCAP_API_KEY;
+const API_BASE_URL = "https://pro-api.coinmarketcap.com";
 
 // ====================
-// API Эндпоинты для 3 событий
+// 🚀 Функция запроса данных с API CoinMarketCap
 // ====================
-const eventEndpoints = {
-  bitcoin_dominance: "https://pro-api.coinmarketcap.com/v1/global-metrics/quotes/latest",
-  cmc_fear_greed: "https://pro-api.coinmarketcap.com/v3/fear-and-greed/latest",
-  cmc100_index: "https://pro-api.coinmarketcap.com/v3/index/cmc100-latest"
-};
+async function fetchMarketData(activeEvents) {
+  const results = [];
 
-// ====================
-// Получение данных по API (Используем import вместо require)
-// ====================
-async function fetchData(url) {
   try {
-    const fetch = (await import('node-fetch')).default;
-    const response = await fetch(url, {
-      headers: { "X-CMC_PRO_API_KEY": API_KEY }
-    });
+    if (activeEvents.includes("bitcoin_dominance")) {
+      const btcData = await axios.get(`${API_BASE_URL}/v1/global-metrics/quotes/latest`, {
+        headers: { 'X-CMC_PRO_API_KEY': COINMARKETCAP_API_KEY }
+      });
 
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const btcDominance = btcData.data.data.btc_dominance.toFixed(2);
+      results.push({
+        key: "bitcoin_dominance",
+        text: `📊 **Bitcoin Dominance**: ${btcDominance}%`,
+        image: `https://s3.coinmarketcap.com/generated/sparklines/web/7d/usd/1.png`
+      });
+    }
 
-    return await response.json();
-  } catch (err) {
-    logger.error(`❌ Failed to fetch data: ${err.message}`);
-    return null;
+    if (activeEvents.includes("cmc100_index")) {
+      const cmcData = await axios.get(`${API_BASE_URL}/v3/index/cmc100-latest`, {
+        headers: { 'X-CMC_PRO_API_KEY': COINMARKETCAP_API_KEY }
+      });
+
+      const cmc100Index = cmcData.data.data.price.toFixed(2);
+      results.push({
+        key: "cmc100_index",
+        text: `📈 **CMC 100 Index**: $${cmc100Index}`,
+        image: `https://s3.coinmarketcap.com/generated/sparklines/web/7d/usd/2.png`
+      });
+    }
+
+    if (activeEvents.includes("cmc_fear_greed")) {
+      const fearGreedData = await axios.get(`${API_BASE_URL}/v3/fear-and-greed/latest`, {
+        headers: { 'X-CMC_PRO_API_KEY': COINMARKETCAP_API_KEY }
+      });
+
+      const fearGreedIndex = fearGreedData.data.data.value;
+      results.push({
+        key: "cmc_fear_greed",
+        text: `😨 **Fear & Greed Index**: ${fearGreedIndex}/100`,
+        image: `https://s3.coinmarketcap.com/generated/sparklines/web/7d/usd/3.png`
+      });
+    }
+
+  } catch (error) {
+    logger.error(`❌ Ошибка запроса к CoinMarketCap API: ${error.message}`);
   }
+
+  return results;
 }
 
-// ====================
-// Получение данных по активным событиям
-// ====================
-async function getMarketOverviewData(activeEvents) {
-  const eventData = [];
-
-  for (const event of activeEvents) {
-    if (!eventEndpoints[event]) continue;
-
-    const data = await fetchData(eventEndpoints[event]);
-    if (!data) continue;
-
-    const imagePath = path.join(CHARTS_DIR, `${event}.png`);
-    await generateChart(event, data, imagePath);
-
-    eventData.push({
-      key: event,
-      text: formatEventText(event, data),
-      image: imagePath
-    });
-  }
-
-  return eventData;
-}
-
-// ====================
-// Форматирование текста уведомлений
-// ====================
-function formatEventText(event, data) {
-  switch (event) {
-    case "bitcoin_dominance":
-      return `📊 *Bitcoin Dominance*\nBTC: ${data.data.btc}% | ETH: ${data.data.eth}% | Others: ${data.data.others}%`;
-
-    case "cmc_fear_greed":
-      return `😨 *CMC Fear & Greed Index*\nCurrent Value: *${data.data.value}* - ${data.data.sentiment}`;
-
-    case "cmc100_index":
-      return `📈 *CMC 100 Index*\nValue: *${data.data.index_value}*`;
-
-    default:
-      return `📊 *${event}*\nData: ${JSON.stringify(data)}`;
-  }
-}
-
-// ====================
-// Генерация изображения (заглушка)
-// ====================
-async function generateChart(event, data, outputPath) {
-  fs.writeFileSync(outputPath, `Fake Image Data for ${event}`);
-}
-
-module.exports = { getMarketOverviewData };
+module.exports = {
+  fetchMarketData
+};
