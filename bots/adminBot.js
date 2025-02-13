@@ -268,6 +268,7 @@ bot.action('back_from_activate', (ctx) => {
 });
 
 
+
 // ====================
 // Обновленная обработка кнопки "Status"
 // ====================
@@ -331,8 +332,10 @@ async function generateGaugeImage(value, label, filePath) {
             }]
         },
         options: {
-            circumference: Math.PI,
-            rotation: -Math.PI,
+            responsive: false,
+            maintainAspectRatio: false,
+            circumference: 180, // Полукруглый график
+            rotation: 270,
             cutout: '75%',
             plugins: {
                 title: {
@@ -349,8 +352,10 @@ async function generateGaugeImage(value, label, filePath) {
     // Генерация изображения
     const imageBuffer = await chartJSNodeCanvas.renderToBuffer(configuration);
 
-    // Сохранение изображения в файл (опционально)
-    fs.writeFileSync(filePath, imageBuffer);
+    // Проверяем перед сохранением
+    if (filePath) {
+        fs.writeFileSync(filePath, imageBuffer);
+    }
 
     return imageBuffer;
 }
@@ -367,7 +372,7 @@ async function fetchImage(url) {
     return Buffer.from(arrayBuffer);
   } catch (err) {
     console.error("Image fetch error:", err.message);
-    throw err;
+    return null; // Теперь не будет ломать код, если изображение не загрузилось
   }
 }
 
@@ -463,23 +468,6 @@ async function getDetailedServerStatus() {
     return { text: reportText, images: { mem: metrics.memGaugeUrl, cpu: metrics.cpuGaugeUrl, disk: metrics.diskGaugeUrl } };
   } catch (err) {
     return { text: `Error retrieving server metrics: ${err.message}`, images: {} };
-  }
-}
-
-
-// ====================
-// Хелпер: получить изображение по URL как Buffer с обработкой ошибки
-// ====================
-async function fetchImage(url) {
-  try {
-    const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Failed to fetch image from ${url}: ${res.status}`);
-    const arrayBuffer = await res.arrayBuffer();
-    return Buffer.from(arrayBuffer);
-  } catch (err) {
-    console.error("Image fetch error:", err.message);
-    throw err;
   }
 }
 
