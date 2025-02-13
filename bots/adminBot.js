@@ -508,17 +508,33 @@ module.exports = {
   getActiveMarketStatsEvents: () => Object.keys(marketStatsSettings).filter((key) => marketStatsSettings[key]?.active)
 };
 
-// ====================
-// Запуск админ-бота
-// ====================
-bot.launch()
-  .then(() => bot.telegram.setWebhook(''))
-  .then(() => {
-    logger.info('CryptoHawk Admin Bot launched with updated menus.');
-  })
-  .catch((err) => {
-    logger.error(`Error launching admin bot: ${err.message}`);
-  });
+// Обработчик команды /start
+bot.start((ctx) => ctx.reply('🚀 CryptoHawk Admin Bot запущен!'));
 
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+// Функция запуска бота
+async function launchBot() {
+  try {
+    await bot.launch();
+    await bot.telegram.setWebhook(''); // Отключаем Webhook для long polling
+    logger.info('✅ CryptoHawk Admin Bot успешно запущен.');
+  } catch (error) {
+    logger.error(`❌ Ошибка запуска Admin Bot: ${error.message}`);
+  }
+}
+
+// Обработка сигналов завершения работы (SIGINT, SIGTERM)
+process.once('SIGINT', () => {
+  bot.stop('SIGINT');
+  logger.warn('⚠️ Admin Bot остановлен (SIGINT).');
+});
+
+process.once('SIGTERM', () => {
+  bot.stop('SIGTERM');
+  logger.warn('⚠️ Admin Bot остановлен (SIGTERM).');
+});
+
+// Экспортируем объект бота и функцию запуска
+module.exports = {
+  bot,
+  launch: launchBot
+};
