@@ -302,10 +302,10 @@ bot.action('menu_status', async (ctx) => {
 });
 
 // ====================
-// Функция генерации Gauge-графиков через Image-Charts
+// Функция генерации красивых Gauge-графиков через Google Charts (gstatic)
 // ====================
 function generateGaugeUrl(value, label) {
-  return `https://image-charts.com/chart?cht=gom&chs=300x200&chd=t:${value}&chl=${encodeURIComponent(label)}&chco=36A2EB,FF0000,00FF00`;
+  return `https://chart.googleapis.com/chart?chs=300x200&cht=gom&chd=t:${value}&chl=${encodeURIComponent(label)}&chco=36A2EB,FF0000,00FF00`;
 }
 
 // ====================
@@ -359,12 +359,11 @@ async function getServerMetrics() {
     usedMem: ((memData.total - memData.available) / (1024 * 1024)).toFixed(2),
     freeMem: (memData.available / (1024 * 1024)).toFixed(2),
     uptime: `${Math.floor(os.uptime() / 3600)}h ${Math.floor((os.uptime() % 3600) / 60)}m`,
-    memGaugeUrl: generateGaugeUrl(usedMemPercentage, 'Memory Usage'),
-    cpuGaugeUrl: generateGaugeUrl(cpuLoadPercent, 'CPU Load'),
-    diskGaugeUrl: generateGaugeUrl(diskUsagePercent, 'Disk Usage')
+    memGaugeUrl: generateGaugeUrl(usedMemPercentage, 'Memory%20Usage'),
+    cpuGaugeUrl: generateGaugeUrl(cpuLoadPercent, 'CPU%20Load'),
+    diskGaugeUrl: generateGaugeUrl(diskUsagePercent, 'Disk%20Usage')
   };
 }
-
 
 // ====================
 // Функция формирования детального отчёта
