@@ -431,6 +431,7 @@ function showMarketStatsMenu(ctx) {
       Markup.button.callback("← Back", "back_from_marketstats")
     ]
   ]);
+  
   ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
 }
 
@@ -469,10 +470,14 @@ function updateActiveEvents() {
 function toggleMarketEvent(ctx, key, label) {
   // Переключаем состояние события
   marketStatsSettings[key].active = !marketStatsSettings[key].active;
-
+  
+  // Обновляем состояние кнопки в UI
   ctx.answerCbQuery(`${label} now ${marketStatsSettings[key].active ? 'ENABLED' : 'DISABLED'}`);
 
+  // Обновляем активные события и поллер
   updateActiveEvents();
+
+  // Обновляем меню с измененными иконками ✅/❌
   showMarketStatsMenu(ctx);
 }
 
