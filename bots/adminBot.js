@@ -444,59 +444,61 @@ function getMarketToggleLabel(label) {
 }
 
 // ====================
-// Переключение событий + запуск поллера
-// ====================
-function toggleMarketEvent(ctx, key, label) {
-  marketStatsSettings[key].active = !marketStatsSettings[key].active;
-  ctx.answerCbQuery(`${label} now ${marketStatsSettings[key].active ? 'ENABLED' : 'DISABLED'}`);
-
-  updateActiveEvents(getActiveMarketStatsEvents());
-  showMarketStatsMenu(ctx);
-}
-
-// ====================
-// Переключатели событий
-// ====================
-bot.action('toggle_open_interest', (ctx) => toggleMarketEvent(ctx, "open_interest", "Open Interest"));
-bot.action('toggle_top_oi', (ctx) => toggleMarketEvent(ctx, "top_oi", "Top OI"));
-bot.action('toggle_top_funding', (ctx) => toggleMarketEvent(ctx, "top_funding", "Top Funding"));
-bot.action('toggle_crypto_etfs_net_flow', (ctx) => toggleMarketEvent(ctx, "crypto_etfs_net_flow", "Crypto ETFs Net Flow"));
-bot.action('toggle_crypto_market_cap', (ctx) => toggleMarketEvent(ctx, "crypto_market_cap", "Crypto Market Cap"));
-bot.action('toggle_cmc_fear_greed', (ctx) => toggleMarketEvent(ctx, "cmc_fear_greed", "CMC Fear & Greed"));
-bot.action('toggle_cmc_altcoin_season', (ctx) => toggleMarketEvent(ctx, "cmc_altcoin_season", "CMC Altcoin Season"));
-bot.action('toggle_cmc100_index', (ctx) => toggleMarketEvent(ctx, "cmc100_index", "CMC 100 Index"));
-bot.action('toggle_eth_gas', (ctx) => toggleMarketEvent(ctx, "eth_gas", "ETH Gas"));
-bot.action('toggle_bitcoin_dominance', (ctx) => toggleMarketEvent(ctx, "bitcoin_dominance", "Bitcoin Dominance"));
-
-// ====================
-// Обработка Market Overview
-// ====================
-bot.action('toggle_market_overview', (ctx) => {
-  marketStatsSettings.market_overview.active = !marketStatsSettings.market_overview.active;
-  setMarketOverviewActive(marketStatsSettings.market_overview.active);
-  ctx.answerCbQuery(`Market Overview now ${marketStatsSettings.market_overview.active ? 'ENABLED' : 'DISABLED'}`);
-
-  updateActiveEvents(getActiveMarketStatsEvents());
-  showMarketStatsMenu(ctx);
-});
-
-// ====================
-// Получение списка активных событий
+// Получение активных событий
 // ====================
 function getActiveMarketStatsEvents() {
   return Object.keys(marketStatsSettings).filter(key => marketStatsSettings[key].active);
 }
 
 // ====================
-// Обновление активных событий и запуск поллера
+// Обновление активных событий и запуск/остановка поллера
 // ====================
-function updateActiveEvents(activeEvents) {
+function updateActiveEvents() {
+  const activeEvents = getActiveMarketStatsEvents();
+
   if (activeEvents.length > 0) {
     startPoller(100000, activeEvents);
   } else {
     stopPoller();
   }
 }
+
+// ====================
+// Универсальная функция переключения событий + запуск поллера
+// ====================
+function toggleMarketEvent(ctx, key, label) {
+  // Переключаем состояние события
+  marketStatsSettings[key].active = !marketStatsSettings[key].active;
+
+  ctx.answerCbQuery(`${label} now ${marketStatsSettings[key].active ? 'ENABLED' : 'DISABLED'}`);
+
+  updateActiveEvents();
+  showMarketStatsMenu(ctx);
+}
+
+// ====================
+// Список событий для кнопок
+// ====================
+const marketEvents = [
+  { key: "open_interest", label: "Open Interest" },
+  { key: "top_oi", label: "Top OI" },
+  { key: "top_funding", label: "Top Funding" },
+  { key: "crypto_etfs_net_flow", label: "Crypto ETFs Net Flow" },
+  { key: "crypto_market_cap", label: "Crypto Market Cap" },
+  { key: "cmc_fear_greed", label: "CMC Fear & Greed" },
+  { key: "cmc_altcoin_season", label: "CMC Altcoin Season" },
+  { key: "cmc100_index", label: "CMC 100 Index" },
+  { key: "eth_gas", label: "ETH Gas" },
+  { key: "bitcoin_dominance", label: "Bitcoin Dominance" },
+  { key: "market_overview", label: "Market Overview" }
+];
+
+// ====================
+// Динамическое создание обработчиков кнопок
+// ====================
+marketEvents.forEach(event => {
+  bot.action(`toggle_${event.key}`, (ctx) => toggleMarketEvent(ctx, event.key, event.label));
+});
 
 // ====================
 // Обработка кнопки "Back" в MarketStats
