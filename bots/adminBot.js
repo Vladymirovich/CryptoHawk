@@ -59,22 +59,6 @@ const cexSettings = {
   allDerivativesPercent: { active: false }
 };
 
-// Настройки для MarketStats (по умолчанию – все отключены)
-// Флаг market_overview позволяет контролировать опрос глобальных метрик – при его выключении соответствующий модуль не запускается.
-const marketStatsSettings = {
-  open_interest: { active: false },
-  top_oi: { active: false },
-  top_funding: { active: false },
-  crypto_etfs_net_flow: { active: false },
-  crypto_market_cap: { active: false },
-  cmc_fear_greed: { active: false },
-  cmc_altcoin_season: { active: false },
-  cmc100_index: { active: false },
-  eth_gas: { active: false },
-  bitcoin_dominance: { active: false },
-  market_overview: { active: false }
-};
-
 // ====================
 // Маппинги для формирования ярлыков в меню
 // ====================
@@ -85,20 +69,6 @@ const cexCategoryMapping = {
   "All Derivatives": "allDerivatives",
   "All Spot%": "allSpotPercent",
   "All Derivatives%": "allDerivativesPercent"
-};
-
-const marketStatsCategoryMapping = {
-  "Open Interest": "open_interest",
-  "Top OI": "top_oi",
-  "Top Funding": "top_funding",
-  "Crypto ETFs Net Flow": "crypto_etfs_net_flow",
-  "Crypto Market Cap": "crypto_market_cap",
-  "CMC Fear & Greed": "cmc_fear_greed",
-  "CMC Altcoin Season": "cmc_altcoin_season",
-  "CMC 100 Index": "cmc100_index",
-  "ETH Gas": "eth_gas",
-  "Bitcoin Dominance": "bitcoin_dominance",
-  "Market Overview": "market_overview"
 };
 
 // ====================
@@ -391,6 +361,51 @@ bot.action('back_from_activate', (ctx) => {
 });
 
 // ====================
+// Глобальные настройки MarketStats
+// ====================
+const marketStatsSettings = {
+  open_interest: { active: false },
+  top_oi: { active: false },
+  top_funding: { active: false },
+  crypto_etfs_net_flow: { active: false },
+  crypto_market_cap: { active: false },
+  cmc_fear_greed: { active: false },
+  cmc_altcoin_season: { active: false },
+  cmc100_index: { active: false },
+  eth_gas: { active: false },
+  bitcoin_dominance: { active: false },
+  market_overview: { active: false }
+};
+
+// ====================
+// Маппинг ярлыков кнопок к настройкам
+// ====================
+const marketStatsCategoryMapping = {
+  "Open Interest": "open_interest",
+  "Top OI": "top_oi",
+  "Top Funding": "top_funding",
+  "Crypto ETFs Net Flow": "crypto_etfs_net_flow",
+  "Crypto Market Cap": "crypto_market_cap",
+  "CMC Fear & Greed": "cmc_fear_greed",
+  "CMC Altcoin Season": "cmc_altcoin_season",
+  "CMC 100 Index": "cmc100_index",
+  "ETH Gas": "eth_gas",
+  "Bitcoin Dominance": "bitcoin_dominance",
+  "Market Overview": "market_overview"
+};
+
+// ====================
+// Проверка и импорт MarketStats Bot (без ошибок)
+// ====================
+let marketStatsBot;
+try {
+  marketStatsBot = require('../bots/marketStatsBot');
+} catch (error) {
+  console.error("❌ Ошибка загрузки MarketStats Bot:", error.message);
+  marketStatsBot = null;
+}
+
+// ====================
 // ОБРАБОТКА ПОДМЕНЮ "MarketStats"
 // ====================
 bot.action('menu_marketstats', (ctx) => {
@@ -403,34 +418,12 @@ bot.action('menu_marketstats', (ctx) => {
 // ====================
 function showMarketStatsMenu(ctx) {
   const text = "MarketStats Settings:\nToggle market events:";
-  const keyboard = Markup.inlineKeyboard([
-    [
-      Markup.button.callback(getMarketToggleLabel("Open Interest"), "toggle_open_interest"),
-      Markup.button.callback(getMarketToggleLabel("Top OI"), "toggle_top_oi")
-    ],
-    [
-      Markup.button.callback(getMarketToggleLabel("Top Funding"), "toggle_top_funding"),
-      Markup.button.callback(getMarketToggleLabel("Crypto ETFs Net Flow"), "toggle_crypto_etfs_net_flow")
-    ],
-    [
-      Markup.button.callback(getMarketToggleLabel("Crypto Market Cap"), "toggle_crypto_market_cap"),
-      Markup.button.callback(getMarketToggleLabel("CMC Fear & Greed"), "toggle_cmc_fear_greed")
-    ],
-    [
-      Markup.button.callback(getMarketToggleLabel("CMC Altcoin Season"), "toggle_cmc_altcoin_season"),
-      Markup.button.callback(getMarketToggleLabel("CMC 100 Index"), "toggle_cmc100_index")
-    ],
-    [
-      Markup.button.callback(getMarketToggleLabel("ETH Gas"), "toggle_eth_gas"),
-      Markup.button.callback(getMarketToggleLabel("Bitcoin Dominance"), "toggle_bitcoin_dominance")
-    ],
-    [
-      Markup.button.callback(getMarketToggleLabel("Market Overview"), "toggle_market_overview")
-    ],
-    [
-      Markup.button.callback("← Back", "back_from_marketstats")
-    ]
-  ]);
+  const keyboard = Markup.inlineKeyboard(
+    Object.keys(marketStatsCategoryMapping).map((label) => {
+      const key = marketStatsCategoryMapping[label];
+      return [Markup.button.callback(getMarketToggleLabel(label), `toggle_${key}`)];
+    })
+  );
 
   try {
     ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
@@ -443,7 +436,7 @@ function showMarketStatsMenu(ctx) {
 // Формирование текста кнопки (✅ / ❌)
 // ====================
 function getMarketToggleLabel(label) {
-  const key = marketStatsCategoryMapping[label]; // Маппинг названия в ключ
+  const key = marketStatsCategoryMapping[label];
   if (!key || !marketStatsSettings[key]) {
     console.error(`❌ Ошибка: Ключ '${label}' не найден в marketStatsSettings!`);
     return `❌ ${label}`;
@@ -455,49 +448,49 @@ function getMarketToggleLabel(label) {
 // Получение активных событий
 // ====================
 function getActiveMarketStatsEvents() {
-  return Object.keys(marketStatsSettings).filter(key => marketStatsSettings[key]?.active);
+  return Object.keys(marketStatsSettings).filter((key) => marketStatsSettings[key]?.active);
 }
 
 // ====================
 // Обновление активных событий в MarketStats Bot
 // ====================
 function updateMarketStatsBot() {
-  const activeEvents = getActiveMarketStatsEvents();
-  if (marketStatsBot && marketStatsBot.updateActiveEvents) {
-    marketStatsBot.updateActiveEvents(activeEvents);
-  } else {
-    console.error("❌ Ошибка: MarketStats Bot не найден или updateActiveEvents отсутствует.");
+  if (!marketStatsBot || !marketStatsBot.updateActiveEvents) {
+    console.error("❌ Ошибка: MarketStats Bot не загружен или updateActiveEvents отсутствует.");
+    return;
   }
+  const activeEvents = getActiveMarketStatsEvents();
+  marketStatsBot.updateActiveEvents(activeEvents);
 }
 
 // ====================
 // Универсальная функция переключения событий + запуск поллера
 // ====================
-function toggleMarketEvent(ctx, key, label) {
+function toggleMarketEvent(ctx, key) {
   if (!marketStatsSettings[key]) {
     console.error(`❌ Ошибка: Ключ '${key}' не найден в marketStatsSettings!`);
-    ctx.answerCbQuery(`⚠ Ошибка: ${label} не найден в настройках.`);
+    ctx.answerCbQuery(`⚠ Ошибка: ${key.replace(/_/g, " ")} не найден в настройках.`);
     return;
   }
 
   // Переключаем состояние события
   marketStatsSettings[key].active = !marketStatsSettings[key].active;
 
-  ctx.answerCbQuery(`${label} теперь ${marketStatsSettings[key].active ? 'Включен ✅' : 'Выключен ❌'}`);
+  ctx.answerCbQuery(`${key.replace(/_/g, " ")} теперь ${marketStatsSettings[key].active ? 'Включен ✅' : 'Выключен ❌'}`);
 
-  // 🔄 ОБНОВЛЯЕМ MarketStats Bot!
+  // 🔄 Обновляем MarketStats Bot
   updateMarketStatsBot();
 
-  // Обновляем меню с измененными иконками ✅/❌
+  // Обновляем меню с измененными иконками ✅/❌ сразу после нажатия
   showMarketStatsMenu(ctx);
 }
 
 // ====================
 // Динамическое создание обработчиков кнопок
 // ====================
-Object.keys(marketStatsCategoryMapping).forEach(label => {
+Object.keys(marketStatsCategoryMapping).forEach((label) => {
   const key = marketStatsCategoryMapping[label];
-  bot.action(`toggle_${key}`, (ctx) => toggleMarketEvent(ctx, key, label));
+  bot.action(`toggle_${key}`, (ctx) => toggleMarketEvent(ctx, key));
 });
 
 // ====================
@@ -512,7 +505,7 @@ bot.action('back_from_marketstats', (ctx) => {
 // Экспортируем настройки для MarketStats Bot
 // ====================
 module.exports = {
-  getActiveMarketStatsEvents
+  getActiveMarketStatsEvents: () => Object.keys(marketStatsSettings).filter((key) => marketStatsSettings[key]?.active)
 };
 
 // ====================
