@@ -10,6 +10,7 @@ const http = require('http');
 const logger = require('../logs/apiLogger');
 const si = require('systeminformation');
 const os = require('os');
+const { ChartJSNodeCanvas } = require('chartjs-node-canvas');
 const statusMediaMessages = {};
 
 // ====================
@@ -302,52 +303,56 @@ bot.action('menu_status', async (ctx) => {
 });
 
 // ====================
-// Функция генерации URL для Gauge-графиков через QuickChart.io
+// Функция генерации изображения Gauge-графиков через Chart.js
 // ====================
-function generateGaugeUrl(value, label) {
-  // Определение цвета в зависимости от значения
-  let color;
-  if (value < 50) {
-    color = "#00FF00"; // Зеленый (Низкая загрузка)
-  } else if (value < 80) {
-    color = "#FFA500"; // Оранжевый (Средняя загрузка)
-  } else {
-    color = "#FF0000"; // Красный (Высокая загрузка)
-  }
+async function generateGaugeImage(value, label, filePath) {
+    const width = 400; // Ширина изображения
+    const height = 250; // Высота изображения
+    const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height });
 
-  // Генерация URL для запроса к QuickChart.io
-  return `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify({
-    type: "gauge",
-    data: {
-      datasets: [{
-        data: [value],
-        backgroundColor: [color],
-        borderWidth: 2
-      }]
-    },
-    options: {
-      needle: {
-        radiusPercentage: 2,
-        widthPercentage: 3,
-        lengthPercentage: 80
-      },
-      valueLabel: {
-        display: true,
-        backgroundColor: "black",
-        color: "white",
-        fontSize: 20,
-        fontStyle: "bold"
-      },
-      title: {
-        display: true,
-        text: label,
-        fontSize: 18,
-        fontColor: "#ffffff"
-      },
-      legend: { display: false },
-      cutoutPercentage: 80
+    // Определение цвета в зависимости от значения
+    let color;
+    if (value < 50) {
+        color = "#00FF00"; // Зеленый (Низкая нагрузка)
+    } else if (value < 80) {
+        color = "#FFA500"; // Оранжевый (Средняя нагрузка)
+    } else {
+        color = "#FF0000"; // Красный (Высокая нагрузка)
     }
-  }))}&w=300&h=200`;
+
+    // Конфигурация графика
+    const configuration = {
+        type: 'doughnut',
+        data: {
+            datasets: [{
+                data: [value, 100 - value],
+                backgroundColor: [color, "#2E2E2E"], // Основной цвет + темный фон
+                borderWidth: 0
+            }]
+        },
+        options: {
+            circumference: Math.PI,
+            rotation: -Math.PI,
+            cutout: '75%',
+            plugins: {
+                title: {
+                    display: true,
+                    text: label,
+                    color: "#ffffff",
+                    font: { size: 20, weight: "bold" }
+                },
+                legend: { display: false }
+            }
+        }
+    };
+
+    // Генерация изображения
+    const imageBuffer = await chartJSNodeCanvas.renderToBuffer(configuration);
+
+    // Сохранение изображения в файл (опционально)
+    fs.writeFileSync(filePath, imageBuffer);
+
+    return imageBuffer;
 }
 
 // ====================
