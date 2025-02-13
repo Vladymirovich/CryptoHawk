@@ -1,29 +1,27 @@
 const logger = require('../logs/apiLogger');
 const { fetchMarketData } = require('./MarketOverviewEvent');
-const axios = require('axios');
+const fetch = require('node-fetch');
 
 let pollerInterval = null;
-let activeEvents = new Set(); // Отслеживаем активные события
+let activeEvents = new Set();
 let notificationCallback = null;
 
-// ====================
-// 🔄 Устанавливаем Callback для отправки уведомлений
-// ====================
+// 🔄 Устанавливаем Callback для уведомлений
 function setNotificationCallback(callback) {
   notificationCallback = callback;
 }
 
-// ====================
-// 🔥 Устанавливаем активные события и перезапускаем Poller
-// ====================
+// 🛠 Устанавливаем активные события и перезапускаем Poller
 function setActiveEvents(events) {
+  if (!events || events.length === 0) {
+    logger.warn("⚠ Попытка установки пустого списка событий в Poller.");
+    return;
+  }
   activeEvents = new Set(events);
   restartPoller();
 }
 
-// ====================
 // 🚀 Основная функция Polling
-// ====================
 async function pollMarketOverview() {
   if (activeEvents.size === 0) {
     logger.info("⚠ Нет активных событий. Пропускаем опрос.");
@@ -34,12 +32,11 @@ async function pollMarketOverview() {
     const eventsData = await fetchMarketData([...activeEvents]);
 
     for (const event of eventsData) {
-      if (!activeEvents.has(event.key)) continue; // Пропускаем неактивные события
+      if (!activeEvents.has(event.key)) continue;
 
       let imageBuffer = null;
       if (event.image) {
         try {
-          const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
           const res = await fetch(event.image);
           if (res.ok) {
             const arrayBuf = await res.arrayBuffer();
@@ -63,39 +60,13 @@ async function pollMarketOverview() {
   }
 }
 
-// ====================
 // 🛠 Запуск Poller
-// ====================
 function startPoller(intervalMs, events) {
+  if (!events || events.length === 0) {
+    logger.warn("⚠ Попытка запуска Poller без активных событий!");
+    return;
+  }
+
   setActiveEvents(events);
   if (pollerInterval) clearInterval(pollerInterval);
-  pollerInterval = setInterval(pollMarketOverview, intervalMs);
-  logger.info(`🚀 Poller запущен с интервалом ${intervalMs} мс.`);
-}
-
-// ====================
-// 🔄 Перезапуск Poller
-// ====================
-function restartPoller() {
-  if (pollerInterval) {
-    clearInterval(pollerInterval);
-    pollerInterval = setInterval(pollMarketOverview, 100000);
-  }
-}
-
-// ====================
-// 🛑 Остановка Poller
-// ====================
-function stopPoller() {
-  if (pollerInterval) {
-    clearInterval(pollerInterval);
-    pollerInterval = null;
-    logger.info("🛑 Poller остановлен.");
-  }
-}
-
-module.exports = {
-  setNotificationCallback,
-  startPoller,
-  stopPoller
-};
+  pollerInterval = s
