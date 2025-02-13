@@ -356,6 +356,41 @@ bot.action('back_from_status', async (ctx) => {
 });
 
 // ====================
+// ОБРАБОТКА КНОПКИ "Activate Bots" – подменю
+// ====================
+bot.action('menu_activate_bots', (ctx) => {
+  const text = "Activate Bots:\nSelect a bot to activate:";
+  const keyboard = Markup.inlineKeyboard([
+    [
+      // Для MarketStats используем URL‑кнопку для перехода в соответствующий бот
+      Markup.button.url("MarketStats", "https://t.me/CryptoHawk_market_bot?start=START"),
+      Markup.button.url("OnChain", "https://t.me/CryptoHawkOnChainBot?start=START")
+    ],
+    [
+      Markup.button.url("CEX Screen", "https://t.me/CryptoHawk_cex_bot?start=START"),
+      Markup.button.url("DEX Screen", "https://t.me/CryptoHawkDEXBot?start=START")
+    ],
+    [
+      Markup.button.url("News", "https://t.me/CryptoHawkNewsBot?start=START"),
+      Markup.button.url("Trends", "https://t.me/CryptoHawkTrendsBot?start=START")
+    ],
+    [
+      Markup.button.callback("← Back", "back_from_activate")
+    ]
+  ]);
+  // Обновляем текущее сообщение подменю
+  return ctx.editMessageText(text, { reply_markup: keyboard.reply_markup });
+});
+
+// ====================
+// ОБРАБОТКА КНОПКИ "← Back" для подменю "Activate Bots"
+// ====================
+bot.action('back_from_activate', (ctx) => {
+  ctx.answerCbQuery();
+  showMainMenu(ctx);
+});
+
+// ====================
 // ОБРАБОТКА ПОДМЕНЮ "MarketStats"
 // ====================
 bot.action('menu_marketstats', (ctx) => {
