@@ -305,8 +305,7 @@ bot.action('menu_status', async (ctx) => {
   }
 });
 
-
-onst width = 300;  // Ширина изображения
+const width = 300;  // Ширина изображения
 const height = 250; // Высота изображения
 const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height, backgroundColour: "black" });
 
