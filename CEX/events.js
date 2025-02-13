@@ -1,5 +1,5 @@
 /* =========================
- * CEX/events.js (Refactored)
+ * CEX/events.js (Optimized & Refactored)
  * ========================= */
 const EventEmitter = require('events');
 const logger = require('../logs/apiLogger');
@@ -12,7 +12,7 @@ const {
   evaluateAllDerivatives,
   evaluateAllSpotPercent,
   evaluateAllDerivativesPercent
-} = require('../utils/filters');
+} = require('../CEX/filters');
 
 class CEXEventBus extends EventEmitter {}
 const cexEventBus = new CEXEventBus();
@@ -21,27 +21,23 @@ const cexEventBus = new CEXEventBus();
 const templatePath = path.join(__dirname, '../config/templates.json');
 const templates = fs.existsSync(templatePath) ? JSON.parse(fs.readFileSync(templatePath, 'utf8')) : {};
 
-const mergedEvents = {};
+const mergedEvents = new Map();
 const mergeThreshold = 30 * 1000; // 30 секунд
 
-// Utility function to apply template
 function applyTemplate(templateObj, data) {
   return Object.keys(data).reduce((message, param) => {
     return message.replace(new RegExp(`{{${param}}}`, 'g'), data[param] || 'N/A');
   }, `${templateObj.title}\n\n${templateObj.message}`);
 }
 
-// Format event notifications
 function formatNotification(eventObj) {
   const { data } = eventObj;
   const eventType = data.event_type || 'large_inflow_outflow';
   const chosen = templates[eventType];
   if (!chosen) return { message: `CEX Event: ${data.event}\n${JSON.stringify(data, null, 2)}` };
-
   return { message: applyTemplate(chosen, data) };
 }
 
-// Process and filter CEX events
 function processCEXEvent(eventData) {
   const category = eventData.category;
   const filterMap = {
@@ -52,37 +48,30 @@ function processCEXEvent(eventData) {
     all_spot_percent: evaluateAllSpotPercent,
     all_derivatives_percent: evaluateAllDerivativesPercent
   };
-  
-  if (!filterMap[category]) {
-    logger.info(`CEX: Unknown category "${category}". Event filtered out.`);
-    return;
-  }
 
-  if (!filterMap[category](eventData, eventData.settings || {})) {
+  if (!filterMap[category] || !filterMap[category](eventData, eventData.settings || {})) {
     logger.info(`CEX: Event "${eventData.event}" did not pass filter for category "${category}".`);
     return;
   }
 
   const key = JSON.stringify({ event: eventData.event, metrics: eventData.metrics });
   const now = Date.now();
-  if (mergedEvents[key] && (now - mergedEvents[key].timestamp < mergeThreshold)) {
-    mergedEvents[key].data = { ...mergedEvents[key].data, ...eventData };
-    mergedEvents[key].timestamp = now;
+  if (mergedEvents.has(key) && (now - mergedEvents.get(key).timestamp < mergeThreshold)) {
+    mergedEvents.get(key).data = { ...mergedEvents.get(key).data, ...eventData };
+    mergedEvents.get(key).timestamp = now;
     logger.info(`CEX: Merged event "${eventData.event}".`);
-    cexEventBus.emit('notification', formatNotification(mergedEvents[key]));
   } else {
-    mergedEvents[key] = { data: eventData, timestamp: now };
+    mergedEvents.set(key, { data: eventData, timestamp: now });
     logger.info(`CEX: New event "${eventData.event}".`);
-    cexEventBus.emit('notification', formatNotification(mergedEvents[key]));
   }
+  cexEventBus.emit('notification', formatNotification(mergedEvents.get(key)));
 }
 
-// Clear old events periodically
 setInterval(() => {
   const now = Date.now();
-  Object.keys(mergedEvents).forEach(key => {
-    if (now - mergedEvents[key].timestamp > mergeThreshold) delete mergedEvents[key];
-  });
+  for (const [key, value] of mergedEvents.entries()) {
+    if (now - value.timestamp > mergeThreshold) mergedEvents.delete(key);
+  }
 }, mergeThreshold);
 
 module.exports = { cexEventBus, processCEXEvent };
