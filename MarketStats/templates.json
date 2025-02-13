@@ -1,37 +1,22 @@
-{
+/* =========================
+ * MarketStats/templates.json (Enhanced & Structured)
+ * ========================= */
+const templates = {
   "dominance": {
     "name": "Dominance",
     "template": "📊 **Dominance**\nBitcoin: {btc_current}% (Change: {btc_change}%)\nEthereum: {eth_current}% (Change: {eth_change}%)\nOthers: {others_current}% (Change: {others_change}%)",
-    "chart": "https://coinmarketcap.com/charts/bitcoin-dominance/?w=250&h=150"
+    "chart": "charts/btc_dominance.png"
   },
   "fear_and_greed": {
     "name": "CMC Crypto Fear and Greed Index",
     "template": "📊 **CMC Crypto Fear and Greed Index**\nValue: {value}",
-    "chart": "https://coinmarketcap.com/charts/fear-and-greed-index/?w=250&h=150"
-  },
-  "altcoin_season": {
-    "name": "CMC Altcoin Season Index",
-    "template": "📊 **CMC Altcoin Season Index**\nValue: {value}",
-    "chart": "https://coinmarketcap.com/charts/altcoin-season-index/?w=250&h=150"
+    "chart": "charts/fear_greed.png"
   },
   "cmc100_index": {
     "name": "CoinMarketCap 100 Index",
     "template": "📊 **CoinMarketCap 100 Index**\nValue: {value}",
-    "chart": "https://coinmarketcap.com/charts/cmc100/?w=250&h=150"
-  },
-  "spot_market_cap": {
-    "name": "Spot Market Crypto Market Cap",
-    "template": "📊 **Spot Market Crypto Market Cap**\nValue: {value}",
-    "chart": "https://coinmarketcap.com/charts/spot-market/?w=250&h=150"
-  },
-  "crypto_etf_tracker": {
-    "name": "Cryptocurrency ETF Tracker",
-    "template": "📊 **Cryptocurrency ETF Tracker**\nValue: {value}",
-    "chart": "https://coinmarketcap.com/etf/?w=250&h=150"
-  },
-  "eth_gas": {
-    "name": "ETH Gas",
-    "template": "📊 **ETH Gas**\nValue: {value} (Change: {change}%)",
-    "chart": "https://coinmarketcap.com/charts/eth-gas/?w=250&h=150"
+    "chart": "charts/cmc100.png"
   }
-}
+};
+
+module.exports = templates;
