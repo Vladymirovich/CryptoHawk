@@ -8,7 +8,9 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const logger = require('../logs/apiLogger');
-const serverMetrics = require('../utils/serverMetrics'); // ✅ Импорт модуля с метриками
+const si = require('systeminformation');
+const os = require('os');
+const statusMediaMessages = {};
 
 // ====================
 // Проверка наличия токена админ-бота
@@ -264,47 +266,40 @@ bot.action('back_from_activate', (ctx) => {
   showMainMenu(ctx);
 });
 
+
 // ====================
 // ОБРАБОТКА КНОПКИ "Status"
 // ====================
 bot.action('menu_status', async (ctx) => {
   await ctx.answerCbQuery();
   try {
-    const statusData = await serverMetrics.getDetailedServerStatus(); // ✅ Вызываем напрямую через объект
-    const { text, images } = statusData; // ✅ Деструктурируем текст и изображения
+    const { text, images } = await getDetailedServerStatus();
     let mediaGroup = [];
     try {
-      // Загружаем изображения для Memory, CPU и Disk (для Network картинка не нужна)
-      const memBuffer = await fetchImage(images.memGaugeUrl);
-      const cpuBuffer = await fetchImage(images.cpuGaugeUrl);
-      const diskBuffer = await fetchImage(images.diskGaugeUrl);
+      const memBuffer = await fetchImage(images.mem);
+      const cpuBuffer = await fetchImage(images.cpu);
+      const diskBuffer = await fetchImage(images.disk);
       mediaGroup = [
         { type: 'photo', media: { source: memBuffer }, caption: 'Memory Usage' },
         { type: 'photo', media: { source: cpuBuffer }, caption: 'CPU Load' },
         { type: 'photo', media: { source: diskBuffer }, caption: 'Disk Usage' }
       ];
-      // Отправляем медиа-группу и сохраняем ID отправленных сообщений для последующего удаления
       const sentMedia = await ctx.replyWithMediaGroup(mediaGroup);
       statusMediaMessages[ctx.chat.id] = sentMedia.map(msg => msg.message_id);
     } catch (imgErr) {
       console.error("Error fetching images, sending text only:", imgErr.message);
     }
-    // Отправляем текстовый отчёт с кнопкой "← Back"
     await ctx.reply(text, {
       parse_mode: 'Markdown',
       disable_web_page_preview: true,
       reply_markup: Markup.inlineKeyboard([
         [Markup.button.callback("← Back", "back_from_status")]
-      ]).reply_markup
+      ])
     });
   } catch (err) {
     await ctx.reply(`Error retrieving server status: ${err.message}`);
   }
 });
-
-const si = require('systeminformation');
-const os = require('os');
-
 
 // ====================
 // Функция генерации Gauge-графиков через Image-Charts
@@ -370,6 +365,7 @@ async function getServerMetrics() {
   };
 }
 
+
 // ====================
 // Функция формирования детального отчёта
 // ====================
@@ -396,16 +392,27 @@ async function getDetailedServerStatus() {
   }
 }
 
-module.exports = {
-  getDetailedServerStatus
-};
+// ====================
+// Хелпер: получить изображение по URL как Buffer с обработкой ошибки
+// ====================
+async function fetchImage(url) {
+  try {
+    const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Failed to fetch image from ${url}: ${res.status}`);
+    const arrayBuffer = await res.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  } catch (err) {
+    console.error("Image fetch error:", err.message);
+    throw err;
+  }
+}
 
 // ====================
 // ОБРАБОТКА КНОПКИ "← Back"
 // ====================
 bot.action('back_from_status', async (ctx) => {
   await ctx.answerCbQuery();
-  // Удаляем ранее отправленные медиа-сообщения, если они существуют
   if (statusMediaMessages[ctx.chat.id]) {
     for (const msgId of statusMediaMessages[ctx.chat.id]) {
       try {
@@ -416,9 +423,13 @@ bot.action('back_from_status', async (ctx) => {
     }
     delete statusMediaMessages[ctx.chat.id];
   }
-  // Возвращаем пользователя в главное меню
   showMainMenu(ctx);
 });
+
+module.exports = {
+  getDetailedServerStatus
+};
+
 
 // ====================
 // 🚀 Запуск админ-бота
