@@ -1,7 +1,6 @@
-{/* =========================
+/* =========================
  * MarketStats/templates.json (Enhanced & Structured)
  * ========================= */
-{
   "dominance": {
     "name": "Dominance",
     "template": "📊 **Dominance**\nBitcoin: {btc_current}% (Change: {btc_change}%)\nEthereum: {eth_current}% (Change: {eth_change}%)\nOthers: {others_current}% (Change: {others_change}%)",
