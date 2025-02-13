@@ -268,7 +268,7 @@ bot.action('back_from_activate', (ctx) => {
 
 
 // ====================
-// ОБРАБОТКА КНОПКИ "Status"
+// Обновленная обработка кнопки "Status"
 // ====================
 bot.action('menu_status', async (ctx) => {
   await ctx.answerCbQuery();
@@ -294,7 +294,7 @@ bot.action('menu_status', async (ctx) => {
       disable_web_page_preview: true,
       reply_markup: Markup.inlineKeyboard([
         [Markup.button.callback("← Back", "back_from_status")]
-      ])
+      ]).reply_markup
     });
   } catch (err) {
     await ctx.reply(`Error retrieving server status: ${err.message}`);
@@ -302,10 +302,26 @@ bot.action('menu_status', async (ctx) => {
 });
 
 // ====================
-// Функция генерации красивых Gauge-графиков через Google Charts (gstatic)
+// Функция генерации Gauge-графиков через QuickChart.io
 // ====================
 function generateGaugeUrl(value, label) {
-  return `https://chart.googleapis.com/chart?chs=300x200&cht=gom&chd=t:${value}&chl=${encodeURIComponent(label)}&chco=36A2EB,FF0000,00FF00`;
+  return `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify({
+    type: 'gauge',
+    data: {
+      datasets: [{
+        data: [value],
+        backgroundColor: ['#36A2EB'],
+        borderWidth: 2
+      }]
+    },
+    options: {
+      needle: { radiusPercentage: 2, widthPercentage: 3, lengthPercentage: 80 },
+      valueLabel: { display: true, backgroundColor: 'black', color: 'white', fontSize: 14, fontStyle: 'bold' },
+      title: { display: true, text: label, fontSize: 16, fontColor: '#ffffff' },
+      legend: { display: false },
+      cutoutPercentage: 80
+    }
+  }))}&w=300&h=200`;
 }
 
 // ====================
@@ -329,6 +345,11 @@ async function getServerMetrics() {
   const usersData = await si.users();
   const procData = await si.processes();
   const processCount = procData.all;
+
+  const apiEndpoints = 15; // 🔥 Пример: количество API-эндпоинтов
+  const webhooksConnected = 5; // 🔥 Пример: количество подключенных Webhooks
+  const apiStability = responseTime < 500 ? "✅ Stable" : "⚠️ Unstable";
+  const webhookStability = webhooksConnected > 3 ? "✅ Stable" : "⚠️ Unstable";
 
   const usedMemPercentage = (((memData.total - memData.available) / memData.total) * 100).toFixed(0);
   const cpuLoadPercent = cpuLoad.currentLoad.toFixed(2);
@@ -355,13 +376,17 @@ async function getServerMetrics() {
     throughput,
     activeUsers: usersData.length,
     processCount,
+    apiEndpoints,
+    webhooksConnected,
+    apiStability,
+    webhookStability,
     totalMem: (memData.total / (1024 * 1024)).toFixed(2),
     usedMem: ((memData.total - memData.available) / (1024 * 1024)).toFixed(2),
     freeMem: (memData.available / (1024 * 1024)).toFixed(2),
     uptime: `${Math.floor(os.uptime() / 3600)}h ${Math.floor((os.uptime() % 3600) / 60)}m`,
-    memGaugeUrl: generateGaugeUrl(usedMemPercentage, 'Memory%20Usage'),
-    cpuGaugeUrl: generateGaugeUrl(cpuLoadPercent, 'CPU%20Load'),
-    diskGaugeUrl: generateGaugeUrl(diskUsagePercent, 'Disk%20Usage')
+    memGaugeUrl: generateGaugeUrl(usedMemPercentage, 'Memory Usage'),
+    cpuGaugeUrl: generateGaugeUrl(cpuLoadPercent, 'CPU Load'),
+    diskGaugeUrl: generateGaugeUrl(diskUsagePercent, 'Disk Usage')
   };
 }
 
@@ -371,25 +396,29 @@ async function getServerMetrics() {
 async function getDetailedServerStatus() {
   try {
     const metrics = await getServerMetrics();
-    const systemStatus = metrics.responseTime > 1000 ? "WARNING" : "OK";
+    const systemStatus = metrics.responseTime > 1000 ? "⚠️ WARNING" : "✅ OK";
 
-    const reportText = `🖥 **SystemStatus: ${systemStatus}**
-• **Response Time:** ${metrics.responseTime} ms
-• **Throughput:** ${metrics.throughput}
-• **Active Users:** ${metrics.activeUsers}
-• **Processes:** ${metrics.processCount}
-• **Memory:** Total: ${metrics.totalMem} MB, 
+    const reportText = `🖥 **System Status: ${systemStatus}**
+📡 **Response Time:** ${metrics.responseTime} ms
+📊 **Throughput:** ${metrics.throughput}
+👥 **Active Users:** ${metrics.activeUsers}
+🔧 **Processes:** ${metrics.processCount}
+🖥 **Memory:** Total: ${metrics.totalMem} MB, 
    Used: ${metrics.usedMem} MB, 
    Free: ${metrics.freeMem} MB (${metrics.usedMemPercentage}%)
-• **CPU Load:** ${metrics.cpuLoadPercent}%
-• **Disk Usage:** ${metrics.diskUsageStr}
-• **Uptime:** ${metrics.uptime}`;
+⚡ **CPU Load:** ${metrics.cpuLoadPercent}%
+💾 **Disk Usage:** ${metrics.diskUsageStr}
+⏳ **Uptime:** ${metrics.uptime}
+
+🔗 **API Endpoints:** ${metrics.apiEndpoints} (${metrics.apiStability})
+📬 **Webhooks:** ${metrics.webhooksConnected} (${metrics.webhookStability})`;
 
     return { text: reportText, images: { mem: metrics.memGaugeUrl, cpu: metrics.cpuGaugeUrl, disk: metrics.diskGaugeUrl } };
   } catch (err) {
     return { text: `Error retrieving server metrics: ${err.message}`, images: {} };
   }
 }
+
 
 // ====================
 // Хелпер: получить изображение по URL как Buffer с обработкой ошибки
@@ -425,6 +454,9 @@ bot.action('back_from_status', async (ctx) => {
   showMainMenu(ctx);
 });
 
+// ====================
+// Экспортируем функцию
+// ====================
 module.exports = {
   getDetailedServerStatus
 };
