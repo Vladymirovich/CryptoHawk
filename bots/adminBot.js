@@ -10,7 +10,6 @@ const http = require('http');
 const logger = require('../logs/apiLogger');
 const si = require('systeminformation');
 const os = require('os');
-const { ChartJSNodeCanvas } = require('chartjs-node-canvas');
 const statusMediaMessages = {};
 
 // ====================
@@ -307,16 +306,17 @@ bot.action('menu_status', async (ctx) => {
 });
 
 
-const width = 300;
-const height = 250;
+onst width = 300;  // Ширина изображения
+const height = 250; // Высота изображения
+const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height, backgroundColour: "black" });
 
 // ====================
-// Функция генерации Gauge-графиков через Chart.js
+// Функция генерации красивых Gauge-графиков
 // ====================
-async function generateGaugeImage(value, label, filePath) {
-    const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height, backgroundColour: "#121212" });
+async function generateGaugeImage(value, label, fileName) {
+    const filePath = path.join(__dirname, '../charts/', fileName); // Путь сохранения
 
-    // Определение цвета в зависимости от значения
+    // Определяем цвет в зависимости от значения
     let color;
     if (value < 50) {
         color = "#00FF00"; // Зеленый (Низкая нагрузка)
@@ -332,48 +332,39 @@ async function generateGaugeImage(value, label, filePath) {
         data: {
             datasets: [{
                 data: [value, 100 - value],
-                backgroundColor: [color, "#333333"], // Основной цвет + серый фон
+                backgroundColor: [color, "#222222"], // Основной цвет + темно-серый фон
                 borderWidth: 2
             }]
         },
         options: {
             responsive: false,
             maintainAspectRatio: false,
-            circumference: 180, // Полукруглый график
-            rotation: 270, // Начинается сверху
-            cutout: '75%',
+            circumference: 180, // Полукруглый gauge
+            rotation: 270, // Начало сверху
+            cutout: '75%', // Толщина gauge
             plugins: {
                 title: {
                     display: true,
                     text: label,
                     color: "#ffffff",
-                    font: { size: 22, weight: "bold" }
+                    font: { size: 20, weight: "bold" }
                 },
                 legend: { display: false },
                 tooltip: { enabled: false }
-            },
-            layout: {
-                padding: { top: 10, bottom: 10 }
-            },
-            animation: { animateRotate: true, animateScale: true }
+            }
         }
     };
 
-    // Вставка текста с процентом внутри графика
-    ChartJSNodeCanvas.registerFont('./fonts/Arial.ttf', { family: 'Arial' });
-    configuration.plugins.datalabels = {
-        display: true,
-        color: '#FFFFFF',
-        font: { size: 32, weight: 'bold' },
-        formatter: () => `${value}%`,
-        anchor: 'center',
-        align: 'center'
-    };
-
     // Генерация изображения
-    const imageBuffer = await chartJSNodeCanvas.renderToBuffer(configuration);
+    const imageBuffer = await chartJSNodeCanvas.renderToBuffer(configuration, 'image/jpeg');
 
-    // Сохранение изображения в файл
+    // Проверяем папку charts
+    const chartsDir = path.join(__dirname, '../charts/');
+    if (!fs.existsSync(chartsDir)) {
+        fs.mkdirSync(chartsDir, { recursive: true });
+    }
+
+    // Сохранение изображения
     fs.writeFileSync(filePath, imageBuffer);
 
     return filePath;
@@ -383,13 +374,9 @@ async function generateGaugeImage(value, label, filePath) {
 // Генерация всех графиков и возврат путей к файлам
 // ====================
 async function generateAllGauges(metrics) {
-    const memFile = './charts/memory.png';
-    const cpuFile = './charts/cpu.png';
-    const diskFile = './charts/disk.png';
-
-    const memPath = await generateGaugeImage(metrics.usedMemPercentage, 'Memory Usage', memFile);
-    const cpuPath = await generateGaugeImage(metrics.cpuLoadPercent, 'CPU Load', cpuFile);
-    const diskPath = await generateGaugeImage(metrics.diskUsagePercent, 'Disk Usage', diskFile);
+    const memPath = await generateGaugeImage(metrics.usedMemPercentage, 'Memory Usage', 'memory.jpg');
+    const cpuPath = await generateGaugeImage(metrics.cpuLoadPercent, 'CPU Load', 'cpu.jpg');
+    const diskPath = await generateGaugeImage(metrics.diskUsagePercent, 'Disk Usage', 'disk.jpg');
 
     return { memPath, cpuPath, diskPath };
 }
