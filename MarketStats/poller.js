@@ -1,5 +1,5 @@
 /* =========================
- * MarketStats/poller.js (Optimized & Auto-Updating)
+ * MarketStats/poller.js (Bugfixes & Enhanced Formatting)
  * ========================= */
 const { getMarketOverviewData } = require('./MarketOverviewEvent');
 const logger = require('../logs/apiLogger');
@@ -22,28 +22,30 @@ async function ensureChartDirExists() {
   }
 }
 
-// Файл-графики, которые нужно обновлять
-const requiredCharts = {
-  btc_dominance: "https://coinmarketcap.com/charts/bitcoin-dominance/?w=250&h=150",
-  fear_greed: "https://coinmarketcap.com/charts/fear-and-greed-index/?w=250&h=150",
-  cmc100: "https://coinmarketcap.com/charts/cmc100/?w=250&h=150"
+// Карта файлов-графиков
+const chartFiles = {
+  dominance: "btc_dominance.png",
+  fear_and_greed: "fear_greed.png",
+  cmc100_index: "cmc100.png"
 };
 
 // Загрузка и обновление графиков
 async function updateCharts() {
   await ensureChartDirExists();
-  for (const [key, url] of Object.entries(requiredCharts)) {
-    const filePath = path.join(chartDir, `${key}.png`);
+  for (const [key, filename] of Object.entries(chartFiles)) {
+    const filePath = path.join(chartDir, filename);
+    const url = `https://coinmarketcap.com/charts/${key}/?w=250&h=150`;
+
     try {
-      logger.info(`📥 Downloading ${key}.png...`);
+      logger.info(`📥 Downloading ${filename}...`);
       const response = await fetch(url);
       if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.status}`);
 
       const buffer = Buffer.from(await response.arrayBuffer());
       await fs.writeFile(filePath, buffer);
-      logger.info(`✅ Updated: ${key}.png`);
+      logger.info(`✅ Updated: ${filename}`);
     } catch (error) {
-      logger.error(`❌ Error updating ${key}.png:`, error.message);
+      logger.error(`❌ Error updating ${filename}:`, error.message);
     }
   }
 }
@@ -59,6 +61,14 @@ function setNotificationCallback(callback) {
   notificationCallback = callback;
 }
 
+// Форматирование текста уведомлений
+function formatEventText(event) {
+  if (typeof event.text === 'object') {
+    return JSON.stringify(event.text, null, 2); // Форматирование JSON в читаемый текст
+  }
+  return event.text;
+}
+
 // Основная функция обработки Market Overview
 async function pollMarketOverview() {
   if (!isMarketOverviewActive) {
@@ -70,8 +80,9 @@ async function pollMarketOverview() {
     const events = await getMarketOverviewData();
 
     for (const event of events) {
-      const filePath = path.join(chartDir, `${event.key}.png`);
+      const filePath = path.join(chartDir, chartFiles[event.key] || "default.png");
       let imageBuffer = null;
+
       try {
         imageBuffer = await fs.readFile(filePath);
       } catch (err) {
@@ -79,7 +90,7 @@ async function pollMarketOverview() {
       }
 
       if (notificationCallback) {
-        await notificationCallback(event.text, imageBuffer);
+        await notificationCallback(formatEventText(event), imageBuffer);
       } else {
         logger.warn("⚠️ Notification callback not set.");
       }
