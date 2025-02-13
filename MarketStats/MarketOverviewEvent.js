@@ -1,8 +1,6 @@
 const axios = require('axios');
 require('dotenv').config();
 const logger = require('../logs/apiLogger');
-const axios = require('axios'); // Импорт axios для работы с HTTP-запросами
-
 
 const COINMARKETCAP_API_KEY = process.env.COINMARKETCAP_API_KEY;
 const API_BASE_URL = "https://pro-api.coinmarketcap.com";
