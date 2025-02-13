@@ -416,9 +416,6 @@ async function getServerMetrics() {
     usedMem: ((memData.total - memData.available) / (1024 * 1024)).toFixed(2),
     freeMem: (memData.available / (1024 * 1024)).toFixed(2),
     uptime: `${Math.floor(os.uptime() / 3600)}h ${Math.floor((os.uptime() % 3600) / 60)}m`,
-    memGaugeUrl: generateGaugeUrl(usedMemPercentage, 'Memory Usage'),
-    cpuGaugeUrl: generateGaugeUrl(cpuLoadPercent, 'CPU Load'),
-    diskGaugeUrl: generateGaugeUrl(diskUsagePercent, 'Disk Usage')
   };
 }
 
@@ -445,7 +442,14 @@ async function getDetailedServerStatus() {
 🔗 **API Endpoints:** ${metrics.apiEndpoints} (${metrics.apiStability})
 📬 **Webhooks:** ${metrics.webhooksConnected} (${metrics.webhookStability})`;
 
-    return { text: reportText, images: { mem: metrics.memGaugeUrl, cpu: metrics.cpuGaugeUrl, disk: metrics.diskGaugeUrl } };
+    return {
+      text: reportText,
+      images: {
+        mem: metrics.usedMemPercentage,
+        cpu: metrics.cpuLoadPercent,
+        disk: parseInt(metrics.diskUsageStr)
+      }
+    };
   } catch (err) {
     return { text: `Error retrieving server metrics: ${err.message}`, images: {} };
   }
