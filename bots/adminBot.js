@@ -444,11 +444,6 @@ function getMarketToggleLabel(label) {
   return marketStatsSettings[key].active ? `✅ ${label}` : `❌ ${label}`;
 }
 
-const { Telegraf } = require('telegraf');
-require('dotenv').config({ path: '../config/.env' });
-
-const bot = new Telegraf(process.env.TELEGRAM_BOSS_BOT_TOKEN);
-
 const marketStatsSettings = {
   open_interest: { active: false },
   top_oi: { active: false },
