@@ -444,69 +444,60 @@ function getMarketToggleLabel(label) {
   return marketStatsSettings[key].active ? `✅ ${label}` : `❌ ${label}`;
 }
 
-// ====================
-// Получение активных событий
-// ====================
+const { Telegraf } = require('telegraf');
+require('dotenv').config({ path: '../config/.env' });
+
+const bot = new Telegraf(process.env.TELEGRAM_BOSS_BOT_TOKEN);
+
+const marketStatsSettings = {
+  open_interest: { active: false },
+  top_oi: { active: false },
+  top_funding: { active: false },
+  crypto_etfs_net_flow: { active: false },
+  crypto_market_cap: { active: false },
+  cmc_fear_greed: { active: false },
+  cmc_altcoin_season: { active: false },
+  cmc100_index: { active: false },
+  eth_gas: { active: false },
+  bitcoin_dominance: { active: false },
+  market_overview: { active: false }
+};
+
+// ✅ Гарантируем экспорт активных событий
 function getActiveMarketStatsEvents() {
-  return Object.keys(marketStatsSettings).filter((key) => marketStatsSettings[key]?.active);
+  return Object.keys(marketStatsSettings).filter((key) => marketStatsSettings[key].active);
 }
 
-// ====================
-// Обновление активных событий в MarketStats Bot
-// ====================
-function updateMarketStatsBot() {
-  if (!marketStatsBot || !marketStatsBot.updateActiveEvents) {
-    console.error("❌ Ошибка: MarketStats Bot не загружен или updateActiveEvents отсутствует.");
-    return;
-  }
-  const activeEvents = getActiveMarketStatsEvents();
-  marketStatsBot.updateActiveEvents(activeEvents);
-}
-
-// ====================
-// Универсальная функция переключения событий + запуск поллера
-// ====================
+// 🔄 Универсальная функция переключения событий
 function toggleMarketEvent(ctx, key) {
-  if (!marketStatsSettings[key]) {
-    console.error(`❌ Ошибка: Ключ '${key}' не найден в marketStatsSettings!`);
-    ctx.answerCbQuery(`⚠ Ошибка: ${key.replace(/_/g, " ")} не найден в настройках.`);
-    return;
-  }
+  if (!marketStatsSettings[key]) return;
 
-  // Переключаем состояние события
   marketStatsSettings[key].active = !marketStatsSettings[key].active;
-
   ctx.answerCbQuery(`${key.replace(/_/g, " ")} теперь ${marketStatsSettings[key].active ? 'Включен ✅' : 'Выключен ❌'}`);
 
   // 🔄 Обновляем MarketStats Bot
   updateMarketStatsBot();
 
-  // Обновляем меню с измененными иконками ✅/❌ сразу после нажатия
   showMarketStatsMenu(ctx);
 }
 
-// ====================
-// Динамическое создание обработчиков кнопок
-// ====================
-Object.keys(marketStatsCategoryMapping).forEach((label) => {
-  const key = marketStatsCategoryMapping[label];
-  bot.action(`toggle_${key}`, (ctx) => toggleMarketEvent(ctx, key));
-});
+// 🛠 Обновление MarketStats Bot
+function updateMarketStatsBot() {
+  const marketStatsBot = require('../bots/marketStatsBot');
+  if (marketStatsBot && marketStatsBot.updateActiveEvents) {
+    marketStatsBot.updateActiveEvents(getActiveMarketStatsEvents());
+  }
+}
 
-// ====================
-// Обработка кнопки "Back" в MarketStats
-// ====================
-bot.action('back_from_marketstats', (ctx) => {
-  ctx.answerCbQuery();
-  showMainMenu(ctx);
-});
-
-// ====================
-// Экспортируем настройки для MarketStats Bot
-// ====================
+// 🛠 Экспортируем нужные функции
 module.exports = {
-  getActiveMarketStatsEvents: () => Object.keys(marketStatsSettings).filter((key) => marketStatsSettings[key]?.active)
+  bot,
+  getActiveMarketStatsEvents
 };
+
+// ====================
+// Запуск админ-бота
+// ====================
 
 // Обработчик команды /start
 bot.start((ctx) => ctx.reply('🚀 CryptoHawk Admin Bot запущен!'));
