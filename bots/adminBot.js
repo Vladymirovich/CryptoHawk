@@ -8,8 +8,9 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const logger = require('../logs/apiLogger');
-const { getDetailedServerStatus } = require('../utils/serverMetrics'); // Импорт функции
+const serverMetrics = require('../utils/serverMetrics'); // ✅ Импорт модуля с метриками
 
+// ====================
 // Проверка наличия токена админ-бота
 if (!process.env.TELEGRAM_BOSS_BOT_TOKEN) {
   console.error("Error: TELEGRAM_BOSS_BOT_TOKEN is not defined in .env");
@@ -269,7 +270,9 @@ bot.action('back_from_activate', (ctx) => {
 bot.action('menu_status', async (ctx) => {
   await ctx.answerCbQuery();
   try {
-    const { text, images } = await serverMetrics.getDetailedServerStatus(); // Теперь await внутри async
+    const statusData = await serverMetrics.getDetailedServerStatus(); // ✅ Вызываем напрямую через объект
+    const { text, images } = statusData; // ✅ Деструктурируем текст и изображения
+    let mediaGroup = [];
     let mediaGroup = [];
     try {
       // Загружаем изображения для Memory, CPU и Disk (для Network картинка не нужна)
