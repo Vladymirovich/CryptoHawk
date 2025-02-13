@@ -1,5 +1,6 @@
 const logger = require('../logs/apiLogger');
 const { fetchMarketData } = require('./MarketOverviewEvent');
+const axios = require('axios');
 
 let pollerInterval = null;
 let activeEvents = new Set(); // Отслеживаем активные события
