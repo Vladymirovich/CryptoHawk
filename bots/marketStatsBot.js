@@ -1,8 +1,11 @@
-// bots/marketStatsBot.js
+/* =========================
+ * bots/marketStatsBot.js (Optimized & Enhanced)
+ * ========================= */
 require('dotenv').config({ path: __dirname + '/../config/.env' });
 const { Telegraf } = require('telegraf');
 const logger = require('../logs/apiLogger');
 const { startPoller, setNotificationCallback } = require('../MarketStats/poller');
+const fs = require('fs');
 
 if (!process.env.TELEGRAM_MARKET_BOT_TOKEN) {
   console.error("Error: TELEGRAM_MARKET_BOT_TOKEN is not defined in .env");
@@ -10,11 +13,8 @@ if (!process.env.TELEGRAM_MARKET_BOT_TOKEN) {
 }
 
 const bot = new Telegraf(process.env.TELEGRAM_MARKET_BOT_TOKEN);
-
-// Глобальная переменная для хранения chat_id уведомлений
 let notificationChatId = null;
 
-// ОБРАБОТКА КОМАНДЫ /start
 bot.start(async (ctx) => {
   try {
     if (ctx.message && ctx.message.message_id) {
@@ -30,8 +30,6 @@ bot.start(async (ctx) => {
   );
 });
 
-// Устанавливаем callback для уведомлений из поллера.
-// Если передан photoBuffer – отправляем фото с подписью, иначе – текстовое сообщение.
 setNotificationCallback(async (messageText, photoBuffer) => {
   if (notificationChatId) {
     try {
@@ -52,7 +50,6 @@ setNotificationCallback(async (messageText, photoBuffer) => {
   }
 });
 
-// Запускаем поллер с интервалом 100000 мс (можно настроить по необходимости)
 startPoller(100000);
 
 bot.launch()
