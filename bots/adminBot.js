@@ -438,79 +438,64 @@ function getMarketToggleLabel(label) {
   return setting.active ? `✅${label}` : `❌${label}`;
 }
 
+// ====================
+// Обработчик переключения событий
+// ====================
+function toggleMarketEvent(ctx, key, label) {
+  marketStatsSettings[key].active = !marketStatsSettings[key].active;
+  ctx.answerCbQuery(`${label} now ${marketStatsSettings[key].active ? 'ENABLED' : 'DISABLED'}`);
+
+  // Пересчитываем активные события
+  const activeEvents = Object.keys(marketStatsSettings)
+    .filter(k => marketStatsSettings[k].active);
+
+  if (activeEvents.length > 0) {
+    startPoller(100000, activeEvents); // Запуск поллера с активными событиями
+  } else {
+    stopPoller(); // Если нет активных событий, поллер выключается
+  }
+
+  showMarketStatsMenu(ctx);
+}
+
+bot.action('toggle_open_interest', (ctx) => toggleMarketEvent(ctx, "open_interest", "Open Interest"));
+bot.action('toggle_top_oi', (ctx) => toggleMarketEvent(ctx, "top_oi", "Top OI"));
+bot.action('toggle_top_funding', (ctx) => toggleMarketEvent(ctx, "top_funding", "Top Funding"));
+bot.action('toggle_crypto_etfs_net_flow', (ctx) => toggleMarketEvent(ctx, "crypto_etfs_net_flow", "Crypto ETFs Net Flow"));
+bot.action('toggle_crypto_market_cap', (ctx) => toggleMarketEvent(ctx, "crypto_market_cap", "Crypto Market Cap"));
+bot.action('toggle_cmc_fear_greed', (ctx) => toggleMarketEvent(ctx, "cmc_fear_greed", "CMC Fear & Greed"));
+bot.action('toggle_cmc_altcoin_season', (ctx) => toggleMarketEvent(ctx, "cmc_altcoin_season", "CMC Altcoin Season"));
+bot.action('toggle_cmc100_index', (ctx) => toggleMarketEvent(ctx, "cmc100_index", "CMC 100 Index"));
+bot.action('toggle_eth_gas', (ctx) => toggleMarketEvent(ctx, "eth_gas", "ETH Gas"));
+bot.action('toggle_bitcoin_dominance', (ctx) => toggleMarketEvent(ctx, "bitcoin_dominance", "Bitcoin Dominance"));
+
+// ====================
+// Обработка переключения кнопки "Market Overview"
+// ====================
+bot.action('toggle_market_overview', (ctx) => {
+  marketStatsSettings.market_overview.active = !marketStatsSettings.market_overview.active;
+  setMarketOverviewActive(marketStatsSettings.market_overview.active);
+  ctx.answerCbQuery(`Market Overview now ${marketStatsSettings.market_overview.active ? 'ENABLED' : 'DISABLED'}`);
+
+  // Пересчитываем активные события
+  const activeEvents = Object.keys(marketStatsSettings)
+    .filter(k => marketStatsSettings[k].active);
+
+  if (activeEvents.length > 0) {
+    startPoller(100000, activeEvents); // Запуск поллера с активными событиями
+  } else {
+    stopPoller(); // Если нет активных событий, поллер выключается
+  }
+
+  showMarketStatsMenu(ctx);
+});
+
+// ====================
+// Кнопка "Back"
+// ====================
 bot.action('back_from_marketstats', (ctx) => {
   ctx.answerCbQuery();
   showMainMenu(ctx);
-});
-
-// ====================
-// Toggle callbacks для остальных событий
-// ====================
-bot.action('toggle_open_interest', (ctx) => {
-  marketStatsSettings.open_interest.active = !marketStatsSettings.open_interest.active;
-  ctx.answerCbQuery(`Open Interest now ${marketStatsSettings.open_interest.active ? 'ENABLED' : 'DISABLED'}`);
-  showMarketStatsMenu(ctx);
-});
-bot.action('toggle_top_oi', (ctx) => {
-  marketStatsSettings.top_oi.active = !marketStatsSettings.top_oi.active;
-  ctx.answerCbQuery(`Top OI now ${marketStatsSettings.top_oi.active ? 'ENABLED' : 'DISABLED'}`);
-  showMarketStatsMenu(ctx);
-});
-bot.action('toggle_top_funding', (ctx) => {
-  marketStatsSettings.top_funding.active = !marketStatsSettings.top_funding.active;
-  ctx.answerCbQuery(`Top Funding now ${marketStatsSettings.top_funding.active ? 'ENABLED' : 'DISABLED'}`);
-  showMarketStatsMenu(ctx);
-});
-bot.action('toggle_crypto_etfs_net_flow', (ctx) => {
-  marketStatsSettings.crypto_etfs_net_flow.active = !marketStatsSettings.crypto_etfs_net_flow.active;
-  ctx.answerCbQuery(`Crypto ETFs Net Flow now ${marketStatsSettings.crypto_etfs_net_flow.active ? 'ENABLED' : 'DISABLED'}`);
-  showMarketStatsMenu(ctx);
-});
-bot.action('toggle_crypto_market_cap', (ctx) => {
-  marketStatsSettings.crypto_market_cap.active = !marketStatsSettings.crypto_market_cap.active;
-  ctx.answerCbQuery(`Crypto Market Cap now ${marketStatsSettings.crypto_market_cap.active ? 'ENABLED' : 'DISABLED'}`);
-  showMarketStatsMenu(ctx);
-});
-bot.action('toggle_cmc_fear_greed', (ctx) => {
-  marketStatsSettings.cmc_fear_greed.active = !marketStatsSettings.cmc_fear_greed.active;
-  ctx.answerCbQuery(`CMC Fear & Greed now ${marketStatsSettings.cmc_fear_greed.active ? 'ENABLED' : 'DISABLED'}`);
-  showMarketStatsMenu(ctx);
-});
-bot.action('toggle_cmc_altcoin_season', (ctx) => {
-  marketStatsSettings.cmc_altcoin_season.active = !marketStatsSettings.cmc_altcoin_season.active;
-  ctx.answerCbQuery(`CMC Altcoin Season now ${marketStatsSettings.cmc_altcoin_season.active ? 'ENABLED' : 'DISABLED'}`);
-  showMarketStatsMenu(ctx);
-});
-bot.action('toggle_cmc100_index', (ctx) => {
-  marketStatsSettings.cmc100_index.active = !marketStatsSettings.cmc100_index.active;
-  ctx.answerCbQuery(`CMC 100 Index now ${marketStatsSettings.cmc100_index.active ? 'ENABLED' : 'DISABLED'}`);
-  showMarketStatsMenu(ctx);
-});
-bot.action('toggle_eth_gas', (ctx) => {
-  marketStatsSettings.eth_gas.active = !marketStatsSettings.eth_gas.active;
-  ctx.answerCbQuery(`ETH Gas now ${marketStatsSettings.eth_gas.active ? 'ENABLED' : 'DISABLED'}`);
-  showMarketStatsMenu(ctx);
-});
-bot.action('toggle_bitcoin_dominance', (ctx) => {
-  marketStatsSettings.bitcoin_dominance.active = !marketStatsSettings.bitcoin_dominance.active;
-  ctx.answerCbQuery(`Bitcoin Dominance now ${marketStatsSettings.bitcoin_dominance.active ? 'ENABLED' : 'DISABLED'}`);
-  showMarketStatsMenu(ctx);
-});
-
-// ====================
-// Обработка переключения кнопки "Market Overview" в меню MarketStats
-// ====================
-
-// Импортируем функцию установки флага из poller.js
-const { setMarketOverviewActive } = require('../MarketStats/poller');
-
-bot.action('toggle_market_overview', (ctx) => {
-  // Переключаем активное состояние события
-  marketStatsSettings.market_overview.active = !marketStatsSettings.market_overview.active;
-  // Устанавливаем флаг в модуле поллера
-  setMarketOverviewActive(marketStatsSettings.market_overview.active);
-  ctx.answerCbQuery(`Market Overview now ${marketStatsSettings.market_overview.active ? 'ENABLED' : 'DISABLED'}`);
-  showMarketStatsMenu(ctx);
 });
 
 // ====================
