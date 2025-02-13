@@ -42,14 +42,20 @@ async function updateActiveEvents() {
 }
 
 // ====================
-// 🚀 Запуск MarketStats Bot
+// 🚀 Запуск MarketStats Bot (с обработкой ошибки 409)
 // ====================
 bot.launch()
   .then(() => {
     logger.info("✅ MarketStats Bot запущен.");
     updateActiveEvents(); // Проверяем активные события при запуске
   })
-  .catch((error) => logger.error(`❌ Ошибка запуска MarketStats Bot: ${error.message}`));
+  .catch((error) => {
+    if (error.response && error.response.error_code === 409) {
+      logger.error("❌ Ошибка: 409 Conflict. Уже запущен другой экземпляр бота!");
+    } else {
+      logger.error(`❌ Ошибка запуска MarketStats Bot: ${error.message}`);
+    }
+  });
 
 // ====================
 // Экспортируем функцию обновления активных событий
