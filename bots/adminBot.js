@@ -306,24 +306,24 @@ bot.action('menu_status', async (ctx) => {
   }
 });
 
-const width = 300;  // Ширина изображения
-const height = 250; // Высота изображения
+const width = 250;
+const height = 250;
 const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height, backgroundColour: "black" });
 
 // ====================
 // Функция генерации красивых Gauge-графиков
 // ====================
 async function generateGaugeImage(value, label, fileName) {
-    const filePath = path.join(__dirname, '../charts/', fileName); // Путь сохранения
+    const filePath = path.join(__dirname, '../charts/', fileName);
 
     // Определяем цвет в зависимости от значения
     let color;
     if (value < 50) {
-        color = "#00FF00"; // Зеленый (Низкая нагрузка)
+        color = "#00FF00"; // Зеленый (низкая нагрузка)
     } else if (value < 80) {
-        color = "#FFA500"; // Оранжевый (Средняя нагрузка)
+        color = "#FFA500"; // Оранжевый (средняя нагрузка)
     } else {
-        color = "#FF0000"; // Красный (Высокая нагрузка)
+        color = "#FF0000"; // Красный (высокая нагрузка)
     }
 
     // Конфигурация графика
@@ -332,20 +332,20 @@ async function generateGaugeImage(value, label, fileName) {
         data: {
             datasets: [{
                 data: [value, 100 - value],
-                backgroundColor: [color, "#222222"], // Основной цвет + темно-серый фон
+                backgroundColor: [color, "#222222"],
                 borderWidth: 2
             }]
         },
         options: {
             responsive: false,
             maintainAspectRatio: false,
-            circumference: 180, // Полукруглый gauge
-            rotation: 270, // Начало сверху
-            cutout: '75%', // Толщина gauge
+            circumference: 180,
+            rotation: 270,
+            cutout: '75%',
             plugins: {
                 title: {
                     display: true,
-                    text: label,
+                    text: `${label}: ${value}%`,
                     color: "#ffffff",
                     font: { size: 20, weight: "bold" }
                 },
@@ -355,25 +355,27 @@ async function generateGaugeImage(value, label, fileName) {
         }
     };
 
-    // Генерация изображения
-    const imageBuffer = await chartJSNodeCanvas.renderToBuffer(configuration, 'image/jpeg');
+    try {
+        const imageBuffer = await chartJSNodeCanvas.renderToBuffer(configuration, 'image/jpeg');
 
-    // Проверяем папку charts
-    const chartsDir = path.join(__dirname, '../charts/');
-    if (!fs.existsSync(chartsDir)) {
-        fs.mkdirSync(chartsDir, { recursive: true });
+        if (!fs.existsSync(path.dirname(filePath))) {
+            fs.mkdirSync(path.dirname(filePath), { recursive: true });
+        }
+
+        fs.writeFileSync(filePath, imageBuffer);
+        console.log(`✅ Gauge ${label} сохранён: ${filePath}`);
+        return filePath;
+    } catch (error) {
+        console.error(`❌ Ошибка генерации ${label}:`, error);
+        return null;
     }
-
-    // Сохранение изображения
-    fs.writeFileSync(filePath, imageBuffer);
-
-    return filePath;
 }
 
 // ====================
 // Генерация всех графиков и возврат путей к файлам
 // ====================
 async function generateAllGauges(metrics) {
+    console.log("🚀 Генерация gauge-графиков...");
     const memPath = await generateGaugeImage(metrics.usedMemPercentage, 'Memory Usage', 'memory.jpg');
     const cpuPath = await generateGaugeImage(metrics.cpuLoadPercent, 'CPU Load', 'cpu.jpg');
     const diskPath = await generateGaugeImage(metrics.diskUsagePercent, 'Disk Usage', 'disk.jpg');
