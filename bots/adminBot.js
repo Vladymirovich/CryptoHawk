@@ -273,7 +273,6 @@ bot.action('menu_status', async (ctx) => {
     const statusData = await serverMetrics.getDetailedServerStatus(); // ✅ Вызываем напрямую через объект
     const { text, images } = statusData; // ✅ Деструктурируем текст и изображения
     let mediaGroup = [];
-    let mediaGroup = [];
     try {
       // Загружаем изображения для Memory, CPU и Disk (для Network картинка не нужна)
       const memBuffer = await fetchImage(images.memGaugeUrl);
