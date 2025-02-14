@@ -210,7 +210,7 @@ bot.action('menu_cex_screen', async (ctx) => {
     await ctx.answerCbQuery();
     showCexMenu(ctx, true);
   } catch (err) {
-    console.error("Error in menu_cex_screen action:", err.message);
+    logger.error("Error in menu_cex_screen action:", err.message);
   }
 });
 
@@ -315,7 +315,7 @@ Object.keys(cexCategoryMapping).forEach((label) => {
 bot.action('back_from_cex_screen', async (ctx) => {
   try {
     await ctx.answerCbQuery();
-    // Функция showMainMenu(ctx) должна быть определена в основном файле админ-бота
+    // Предполагается, что функция showMainMenu(ctx) определена в основном файле админ-бота
     showMainMenu(ctx);
   } catch (err) {
     logger.error("Error in back_from_cex_screen:", err.message);
@@ -331,15 +331,14 @@ Object.keys(cexCategoryMapping).forEach((label) => {
     try {
       await ctx.answerCbQuery();
       const filters = filterMapping[key];
-      // Формируем кнопки фильтров: для кнопок, требующих ввода, используем отдельный обработчик
+      // Формируем кнопки фильтров:
       const filterButtons = filters.map((filter) => {
         if (filter === "💎 Избранные монеты" || filter === "🚫 Ненужные монеты") {
           return [
             Markup.button.callback(filter, `${key}_input_${filter.replace(/\s+/g, '_').toLowerCase()}`)
           ];
         } else {
-          // Для остальных – просто переключение состояния
-          // Состояние фильтра хранится в cexUserFilters[key][filter] (если не определено – по умолчанию false)
+          // Для остальных – переключение состояния без ввода
           const current = (cexUserFilters[key] && cexUserFilters[key][filter]) ? true : false;
           const stateIcon = current ? '✅' : '❌';
           return [
@@ -360,8 +359,7 @@ Object.keys(cexCategoryMapping).forEach((label) => {
 });
 
 // --------------------
-// Обработчики для фильтров, требующих текстового ввода
-// (пример для "💎 Избранные монеты" и "🚫 Ненужные монеты")
+// Обработчики для фильтров, требующих текстового ввода (например, "💎 Избранные монеты" и "🚫 Ненужные монеты")
 ["flowAlerts", "cexTracking"].forEach((category) => {
   ["💎 Избранные монеты", "🚫 Ненужные монеты"].forEach((filter) => {
     const actionId = `${category}_input_${filter.replace(/\s+/g, '_').toLowerCase()}`;
@@ -380,7 +378,7 @@ Object.keys(cexCategoryMapping).forEach((label) => {
             await newCtx.reply(`Настройки для фильтра "${filter}" сохранены: ${userInput}`);
             // Убираем обработчик после получения текста
             bot.off('text', onText);
-            // Возвращаемся в меню фильтров
+            // Возвращаем пользователя в меню фильтров
             await ctx.reply("Нажмите ← Back для возврата в меню фильтров.");
           }
         };
@@ -393,8 +391,8 @@ Object.keys(cexCategoryMapping).forEach((label) => {
 });
 
 // --------------------
-// Обработчики для остальных фильтров – переключение состояния без ввода
-// (сохраняем состояние фильтра в cexUserFilters как boolean)
+// Обработчики для остальных фильтров – переключение состояния (без ввода)
+// Сохраняем состояние фильтра в cexUserFilters как boolean
 Object.keys(filterMapping).forEach((key) => {
   filterMapping[key].forEach((filter) => {
     if (filter !== "💎 Избранные монеты" && filter !== "🚫 Ненужные монеты") {
@@ -407,7 +405,7 @@ Object.keys(filterMapping).forEach((key) => {
           }
           cexUserFilters[key][filter] = !cexUserFilters[key][filter];
           saveSettings(cexUserFilters);
-          // Обновляем кнопки фильтров
+          // Обновляем кнопки фильтров – переотрисовываем inline‑клавиатуру
           const filters = filterMapping[key];
           const filterButtons = filters.map((f) => {
             if (f === "💎 Избранные монеты" || f === "🚫 Ненужные монеты") {
