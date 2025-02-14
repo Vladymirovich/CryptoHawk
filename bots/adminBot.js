@@ -275,122 +275,49 @@ bot.action('back_from_activate', (ctx) => {
 bot.action('menu_status', async (ctx) => {
   await ctx.answerCbQuery();
   try {
-    const { text, images } = await getDetailedServerStatus();
-    let mediaGroup = [];
-    try {
-      // Генерация графиков
-      const { memPath, cpuPath, diskPath } = await generateAllGauges(images);
-
-      if (!memPath || !cpuPath || !diskPath) {
-        throw new Error('Error generating some gauges.');
-      }
-
-      mediaGroup = [
-        { type: 'photo', media: { source: memPath }, caption: 'Memory Usage' },
-        { type: 'photo', media: { source: cpuPath }, caption: 'CPU Load' },
-        { type: 'photo', media: { source: diskPath }, caption: 'Disk Usage' }
-      ];
-
-      // Отправка медиа
-      const sentMedia = await ctx.replyWithMediaGroup(mediaGroup);
-      statusMediaMessages[ctx.chat.id] = sentMedia.map(msg => msg.message_id);
-    } catch (imgErr) {
-      console.error("Error generating images, sending text only:", imgErr.message);
-      await ctx.reply(`Error generating images: ${imgErr.message}`);
-    }
+    const { text, alert } = await getDetailedServerStatus();
     
-    // Ответ с текстом отчета
+    // Отправка текстового отчёта
     await ctx.reply(text, {
       parse_mode: 'Markdown',
       disable_web_page_preview: true,
       reply_markup: Markup.inlineKeyboard([
-        [Markup.button.callback("← Back", "back_from_status")]
+        [Markup.button.callback("\u2190 Back", "back_from_status")]
       ]).reply_markup
     });
+    
+    // Отправка уведомления в админ-бот при критической нагрузке
+    if (alert) {
+      await ctx.reply(`\u26A0\uFE0F *Critical Server Alert!*\n${alert}`, {
+        parse_mode: 'Markdown',
+        reply_markup: Markup.inlineKeyboard([
+          [Markup.button.callback("\uD83D\uDD04 Restart Server", "restart_server")]
+        ]).reply_markup
+      });
+    }
   } catch (err) {
     await ctx.reply(`Error retrieving server status: ${err.message}`);
   }
 });
 
-const width = 250;
-const height = 250;
-const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height, backgroundColour: "black" });
-
 // ====================
-// Функция генерации красивых Gauge-графиков
+// Функция обработки кнопки "Restart Server"
 // ====================
-async function generateGaugeImage(value, label, fileName) {
-    const filePath = path.join(__dirname, '../charts/', fileName);
-
-    // Определяем цвет в зависимости от значения
-    let color;
-    if (value < 50) {
-        color = "#00FF00"; // Зеленый (низкая нагрузка)
-    } else if (value < 80) {
-        color = "#FFA500"; // Оранжевый (средняя нагрузка)
-    } else {
-        color = "#FF0000"; // Красный (высокая нагрузка)
-    }
-
-    // Конфигурация графика
-    const configuration = {
-        type: 'doughnut',
-        data: {
-            datasets: [{
-                data: [value, 100 - value],
-                backgroundColor: [color, "#222222"],
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            circumference: 180,
-            rotation: 270,
-            cutout: '75%',
-            plugins: {
-                title: {
-                    display: true,
-                    text: `${label}: ${value}%`,
-                    color: "#ffffff",
-                    font: { size: 20, weight: "bold" }
-                },
-                legend: { display: false },
-                tooltip: { enabled: false }
-            }
-        }
-    };
-
-    try {
-        const imageBuffer = await chartJSNodeCanvas.renderToBuffer(configuration, 'image/jpeg');
-
-        if (!fs.existsSync(path.dirname(filePath))) {
-            fs.mkdirSync(path.dirname(filePath), { recursive: true });
-        }
-
-        fs.writeFileSync(filePath, imageBuffer);
-        console.log(`✅ Gauge ${label} сохранён: ${filePath}`);
-        return filePath;
-    } catch (error) {
-        console.error(`❌ Ошибка генерации ${label}:`, error);
-        return null;
-    }
-}
-
-// ====================
-// Генерация всех графиков и возврат путей к файлам
-// ====================
-async function generateAllGauges(metrics) {
-    console.log("🚀 Генерация gauge-графиков...");
-    const memPath = await generateGaugeImage(metrics.usedMemPercentage, 'Memory Usage', 'memory.jpg');
-    const cpuPath = await generateGaugeImage(metrics.cpuLoadPercent, 'CPU Load', 'cpu.jpg');
-    const diskPath = await generateGaugeImage(metrics.diskUsagePercent, 'Disk Usage', 'disk.jpg');
-
-    // Возвращаем пути
-    return { memPath, cpuPath, diskPath };
-}
-
-module.exports = { generateAllGauges };
+bot.action('restart_server', async (ctx) => {
+  await ctx.answerCbQuery();
+  try {
+    await ctx.reply("\uD83D\uDD04 Restarting server...");
+    require('child_process').exec('pm2 restart all', (error, stdout, stderr) => {
+      if (error) {
+        ctx.reply(`❌ Error restarting server: ${error.message}`);
+      } else {
+        ctx.reply("✅ Server restarted successfully.");
+      }
+    });
+  } catch (err) {
+    await ctx.reply(`❌ Error executing restart: ${err.message}`);
+  }
+});
 
 // ====================
 // Функция сбора метрик сервера
@@ -403,7 +330,7 @@ async function getServerMetrics() {
     http.get(url, (res) => {
       res.on('data', () => {});
       res.on('end', () => resolve(Date.now() - start));
-    }).on('error', () => resolve(9999)); // Если сервер не отвечает
+    }).on('error', () => resolve(9999));
   });
 
   const memData = await si.mem();
@@ -414,14 +341,14 @@ async function getServerMetrics() {
   const procData = await si.processes();
   const processCount = procData.all;
 
-  // Добавляем дополнительную информацию о статусах API и Webhook
-  const apiEndpoints = 15; // Пример: количество API-эндпоинтов
-  const webhooksConnected = 5; // Пример: количество подключенных Webhooks
+  const apiEndpoints = 15;
+  const webhooksConnected = 5;
   const apiStability = responseTime < 500 ? "✅ Stable" : "⚠️ Unstable";
   const webhookStability = webhooksConnected > 3 ? "✅ Stable" : "⚠️ Unstable";
 
   const usedMemPercentage = (((memData.total - memData.available) / memData.total) * 100).toFixed(0);
   const cpuLoadPercent = cpuLoad.currentLoad.toFixed(2);
+  let alertMessage = "";
 
   let throughput = "0 KB/s";
   if (netStats && netStats.length > 0) {
@@ -436,6 +363,13 @@ async function getServerMetrics() {
     diskUsagePercent = rootFs.use.toFixed(0);
     diskUsageStr = `${(rootFs.used / (1024 * 1024 * 1024)).toFixed(2)} / ${(rootFs.size / (1024 * 1024 * 1024)).toFixed(2)} GB (${diskUsagePercent}%)`;
   }
+
+  if (cpuLoadPercent > 90) alertMessage += "🔥 High CPU Load!\n";
+  if (usedMemPercentage > 90) alertMessage += "🛑 Low Memory Available!\n";
+  if (diskUsagePercent > 90) alertMessage += "💾 Disk Almost Full!\n";
+  if (responseTime > 1500) alertMessage += "⚠️ High API Response Time!\n";
+  if (apiStability.includes("⚠️")) alertMessage += "⚠️ API Stability Issues!\n";
+  if (webhookStability.includes("⚠️")) alertMessage += "⚠️ Webhooks Unstable!\n";
 
   return {
     responseTime,
@@ -453,6 +387,7 @@ async function getServerMetrics() {
     usedMem: ((memData.total - memData.available) / (1024 * 1024)).toFixed(2),
     freeMem: (memData.available / (1024 * 1024)).toFixed(2),
     uptime: `${Math.floor(os.uptime() / 3600)}h ${Math.floor((os.uptime() % 3600) / 60)}m`,
+    alert: alertMessage.length ? alertMessage : null
   };
 }
 
@@ -469,9 +404,7 @@ async function getDetailedServerStatus() {
 📊 **Throughput:** ${metrics.throughput}
 👥 **Active Users:** ${metrics.activeUsers}
 🔧 **Processes:** ${metrics.processCount}
-🖥 **Memory:** Total: ${metrics.totalMem} MB, 
-   Used: ${metrics.usedMem} MB, 
-   Free: ${metrics.freeMem} MB (${metrics.usedMemPercentage}%)
+🖥 **Memory:** Total: ${metrics.totalMem} MB, \n   Used: ${metrics.usedMem} MB, \n   Free: ${metrics.freeMem} MB (${metrics.usedMemPercentage}%)
 ⚡ **CPU Load:** ${metrics.cpuLoadPercent}%
 💾 **Disk Usage:** ${metrics.diskUsageStr}
 ⏳ **Uptime:** ${metrics.uptime}
@@ -479,16 +412,12 @@ async function getDetailedServerStatus() {
 🔗 **API Endpoints:** ${metrics.apiEndpoints} (${metrics.apiStability})
 📬 **Webhooks:** ${metrics.webhooksConnected} (${metrics.webhookStability})`;
 
-      return {
+    return {
       text: reportText,
-      images: {
-        mem: metrics.usedMemPercentage,  // передаем процент как значение
-        cpu: metrics.cpuLoadPercent,    // передаем процент как значение
-        disk: metrics.diskUsagePercent // передаем процент как значение
-      }
+      alert: metrics.alert
     };
   } catch (err) {
-    return { text: `Error retrieving server metrics: ${err.message}`, images: {} };
+    return { text: `Error retrieving server metrics: ${err.message}`, alert: null };
   }
 }
 
@@ -497,16 +426,6 @@ async function getDetailedServerStatus() {
 // ====================
 bot.action('back_from_status', async (ctx) => {
   await ctx.answerCbQuery();
-  if (statusMediaMessages[ctx.chat.id]) {
-    for (const msgId of statusMediaMessages[ctx.chat.id]) {
-      try {
-        await ctx.deleteMessage(msgId);
-      } catch (delErr) {
-        console.error("Error deleting media message:", delErr.message);
-      }
-    }
-    delete statusMediaMessages[ctx.chat.id];
-  }
   showMainMenu(ctx);
 });
 
