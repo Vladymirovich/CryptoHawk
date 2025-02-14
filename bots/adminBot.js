@@ -340,7 +340,8 @@ function showFilterMenu(ctx, key, displayLabel) {
 }
 
 // --------------------
-// Обработчики для фильтров, требующих текстового ввода
+// Обработчики для фильтров, требующих текстового ввода (например, "💎 Избранные монеты" и "🚫 Ненужные монеты")
+// --------------------
 ["flowAlerts", "cexTracking"].forEach((category) => {
   ["💎 Избранные монеты", "🚫 Ненужные монеты"].forEach((filter) => {
     const actionId = `${category}_input_${filter.replace(/\s+/g, '_').toLowerCase()}`;
@@ -348,8 +349,13 @@ function showFilterMenu(ctx, key, displayLabel) {
       try {
         await ctx.answerCbQuery();
         await ctx.reply(`Введите список монет для фильтра "${filter}" (через запятую):`);
+        // Создаем одноразовый обработчик ввода текста
         const onText = async (newCtx) => {
-          if (newCtx.chat.id === ctx.chat.id && newCtx.message && newCtx.message.text) {
+          if (
+            newCtx.chat.id === ctx.chat.id &&
+            newCtx.message &&
+            newCtx.message.text
+          ) {
             const userInput = newCtx.message.text;
             if (!cexUserFilters[category]) {
               cexUserFilters[category] = {};
@@ -357,10 +363,13 @@ function showFilterMenu(ctx, key, displayLabel) {
             cexUserFilters[category][filter] = userInput;
             saveSettings(cexUserFilters);
             await newCtx.reply(`Настройки для фильтра "${filter}" сохранены: ${userInput}`);
-            // Убираем обработчик после получения текста
+            // Убираем одноразовый обработчик после получения текста
             bot.removeListener('text', onText);
             // Обновляем подменю фильтров для данной категории, чтобы вернуть кнопку "← Back"
-            const displayLabel = Object.keys(cexCategoryMapping).find(l => cexCategoryMapping[l] === category) || category;
+            const displayLabel =
+              Object.keys(cexCategoryMapping).find(
+                (l) => cexCategoryMapping[l] === category
+              ) || category;
             await showFilterMenu(ctx, category, displayLabel);
           }
         };
