@@ -320,6 +320,10 @@ bot.action('restart_server', async (ctx) => {
            echo "❌ Error: Unable to detect Docker container ID."; 
            exit 1;
          fi
+       elif [ -n "$RAILWAY_PROJECT_ID" ]; then
+         echo "🚀 Railway detected. Triggering redeploy...";
+         curl -X POST -H "Authorization: Bearer $RAILWAY_API_KEY" "https://backboard.railway.app/v2/projects/$RAILWAY_PROJECT_ID/deployments"
+         echo "✅ Railway redeploy triggered.";
        elif command -v pm2 &> /dev/null && pm2 list --no-color | grep -q "index"; then 
          echo "🔄 PM2 detected. Restarting process...";
          pm2 restart index && echo "✅ PM2 process restarted.";
@@ -327,7 +331,7 @@ bot.action('restart_server', async (ctx) => {
          echo "⚡ Systemd detected. Restarting service...";
          systemctl restart CryptoHawk && echo "✅ Service restarted.";
        else 
-         echo "❌ Error: Could not detect Docker, PM2, or Systemd.";
+         echo "❌ Error: Could not detect Docker, PM2, or Systemd. Railway API key might be missing.";
          exit 1;
        fi`,
       (error, stdout, stderr) => {
