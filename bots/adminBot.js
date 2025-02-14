@@ -216,9 +216,6 @@ bot.action('menu_cex_screen', async (ctx) => {
 
 const { cexUserFilters, saveSettings } = require('../CEX/settings');
 
-const fs = require('fs');
-const path = require('path');
-
 const settingsPath = path.join(__dirname, 'cexSettings.json');
 
 // Значения по умолчанию для настроек фильтров CEX Screen
