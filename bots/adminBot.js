@@ -310,9 +310,16 @@ bot.action('restart_server', async (ctx) => {
     await ctx.reply("🔄 Restarting server...");
 
     require('child_process').exec(
-      `if [ -f /.dockerenv ]; then echo "Docker detected. Restarting container..."; docker restart $(cat /proc/1/cgroup | grep -oE '[0-9a-f]{64}' | head -n 1); 
-      elif pm2 list | grep -q "index"; then echo "PM2 detected. Restarting process..."; pm2 restart index;
-      else echo "Error: Neither Docker nor PM2 detected."; exit 1; fi`,
+      `if [ -f /.dockerenv ]; then 
+         echo "Docker detected. Restarting container..."; 
+         docker restart $(hostname); 
+       elif command -v pm2 &> /dev/null && pm2 list | grep -q "online"; then 
+         echo "PM2 detected. Restarting process..."; 
+         pm2 restart all; 
+       else 
+         echo "Error: Neither Docker nor PM2 detected."; 
+         exit 1; 
+       fi`,
       (error, stdout, stderr) => {
         if (error) {
           ctx.reply(`❌ Error restarting server: ${stderr || error.message}`);
