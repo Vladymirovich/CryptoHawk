@@ -263,7 +263,7 @@ function getCexToggleLabel(label) {
 // --------------------
 function showCexMenu(ctx, edit = false) {
   const text = "🔍 *CEX Screen Settings*\n\nВыберите параметры, которые хотите отслеживать:";
-  // Для каждой категории – две кнопки: переключатель и кнопка фильтров
+  // Формируем кнопки для каждой категории: переключатель и кнопка фильтров
   const buttons = Object.keys(cexCategoryMapping).map((label) => [
     Markup.button.callback(getCexToggleLabel(label), `toggle_${cexCategoryMapping[label]}`),
     Markup.button.callback("Filters ⚙️", `filters_${cexCategoryMapping[label]}`)
@@ -273,11 +273,9 @@ function showCexMenu(ctx, edit = false) {
   const keyboard = Markup.inlineKeyboard(buttons);
   try {
     if (edit && ctx.update.callback_query && ctx.update.callback_query.message) {
-      ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup })
-        .catch(err => logger.error("Error editing CEX menu text:", err.message));
+      return ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
     } else {
-      ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup })
-        .catch(err => logger.error("Error sending CEX menu message:", err.message));
+      return ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
     }
   } catch (error) {
     logger.error("❌ Ошибка обновления меню CEX Screen:", error.message);
@@ -292,6 +290,7 @@ function toggleCexSetting(ctx, key) {
   cexSettings[key].active = !cexSettings[key].active;
   ctx.answerCbQuery(`${key.replace(/_/g, " ")} теперь ${cexSettings[key].active ? 'Включен ✅' : 'Выключен ❌'}`)
     .catch(err => logger.error("Error sending callback answer:", err.message));
+  // Обновляем главное меню CEX Screen (сохраняя фильтры)
   showCexMenu(ctx, true);
 }
 
@@ -315,7 +314,7 @@ Object.keys(cexCategoryMapping).forEach((label) => {
 bot.action('back_from_cex_screen', async (ctx) => {
   try {
     await ctx.answerCbQuery();
-    // Предполагается, что функция showMainMenu(ctx) определена в основном файле админ-бота
+    // Функция showMainMenu(ctx) должна быть определена в основном файле админ-бота
     showMainMenu(ctx);
   } catch (err) {
     logger.error("Error in back_from_cex_screen:", err.message);
@@ -346,7 +345,7 @@ Object.keys(cexCategoryMapping).forEach((label) => {
           ];
         }
       });
-      // Добавляем кнопку "← Back" для возврата в главное меню CEX Screen
+      // Добавляем кнопку "← Back" для возврата в меню CEX Screen
       filterButtons.push([Markup.button.callback("← Back", "menu_cex_screen")]);
       await ctx.editMessageText(
         `🔍 *${label} Filters*\n\nНастройте фильтры для категории ${label}:`,
@@ -360,6 +359,7 @@ Object.keys(cexCategoryMapping).forEach((label) => {
 
 // --------------------
 // Обработчики для фильтров, требующих текстового ввода (например, "💎 Избранные монеты" и "🚫 Ненужные монеты")
+// После ввода текста обновляем меню фильтров, чтобы кнопка "← Back" всегда была
 ["flowAlerts", "cexTracking"].forEach((category) => {
   ["💎 Избранные монеты", "🚫 Ненужные монеты"].forEach((filter) => {
     const actionId = `${category}_input_${filter.replace(/\s+/g, '_').toLowerCase()}`;
@@ -367,6 +367,7 @@ Object.keys(cexCategoryMapping).forEach((label) => {
       try {
         await ctx.answerCbQuery();
         await ctx.reply(`Введите список монет для фильтра "${filter}" (через запятую):`);
+        // Определяем одноразовый обработчик ввода текста
         const onText = async (newCtx) => {
           if (newCtx.chat.id === ctx.chat.id && newCtx.message && newCtx.message.text) {
             const userInput = newCtx.message.text;
@@ -378,8 +379,9 @@ Object.keys(cexCategoryMapping).forEach((label) => {
             await newCtx.reply(`Настройки для фильтра "${filter}" сохранены: ${userInput}`);
             // Убираем обработчик после получения текста
             bot.off('text', onText);
-            // Возвращаем пользователя в меню фильтров
-            await ctx.reply("Нажмите ← Back для возврата в меню фильтров.");
+            // Возвращаем пользователя в подменю фильтров (обновляем inline-клавиатуру)
+            // Для этого можно повторно вызвать обработчик фильтров для данной категории:
+            bot.telegram.sendMessage(ctx.chat.id, `Нажмите «← Back» для возврата в меню фильтров.`);
           }
         };
         bot.on('text', onText);
@@ -405,7 +407,7 @@ Object.keys(filterMapping).forEach((key) => {
           }
           cexUserFilters[key][filter] = !cexUserFilters[key][filter];
           saveSettings(cexUserFilters);
-          // Обновляем кнопки фильтров – переотрисовываем inline‑клавиатуру
+          // Обновляем кнопки фильтров — переотрисовываем inline‑клавиатуру
           const filters = filterMapping[key];
           const filterButtons = filters.map((f) => {
             if (f === "💎 Избранные монеты" || f === "🚫 Ненужные монеты") {
