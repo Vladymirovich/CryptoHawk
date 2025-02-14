@@ -239,7 +239,7 @@ bot.action('menu_cex', async (ctx) => {
       ]
     ]);
 
-    // Если сообщение исходно пришло как callback_query, попробуем его отредактировать
+    // Если сообщение пришло как callback_query, редактируем его, иначе отправляем новое
     if (ctx.update.callback_query && ctx.update.callback_query.message) {
       await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
     } else {
@@ -251,7 +251,7 @@ bot.action('menu_cex', async (ctx) => {
 });
 
 // ====================
-// IN-MEMORY НАСТРОЙКИ
+// IN-MEMORY НАСТРОЙКИ для CEX
 // ====================
 const cexSettings = {
   flowAlerts: { active: false },
@@ -263,7 +263,7 @@ const cexSettings = {
 };
 
 // ====================
-// Маппинги для формирования ярлыков в меню
+// Маппинг ярлыков кнопок к настройкам
 // ====================
 const cexCategoryMapping = {
   "Flow Alerts": "flowAlerts",
@@ -283,12 +283,12 @@ function toggleSetting(setting) {
 }
 
 // ====================
-// Функции для активации/деактивации CEX параметров
+// Обработчики переключения параметров
 // ====================
+
 bot.action('toggle_flow_alerts', async (ctx) => {
   try {
     await ctx.answerCbQuery();
-    // Обновляем состояние и меняем только клавиатуру (без изменения текста)
     const newMark = toggleSetting('flowAlerts');
     const keyboard = Markup.inlineKeyboard([
       [
@@ -319,9 +319,6 @@ bot.action('toggle_cex_tracking', async (ctx) => {
     console.error("Error in toggle_cex_tracking:", err.message);
   }
 });
-
-// Аналогичные обработчики для остальных кнопок (allSpot, allDerivatives, allSpotPercent, allDerivativesPercent)
-// (Код можно продублировать с заменой соответствующих настроек)
 
 bot.action('toggle_all_spot', async (ctx) => {
   try {
@@ -392,20 +389,9 @@ bot.action('toggle_all_derivatives_percent', async (ctx) => {
 });
 
 // ====================
-// ОБРАБОТКА КНОПКИ "← Back"
+// Обработчики подменю фильтров
 // ====================
-bot.action('back_from_cex', async (ctx) => {
-  try {
-    await ctx.answerCbQuery();
-    showMainMenu(ctx);
-  } catch (err) {
-    console.error("Error in back_from_cex:", err.message);
-  }
-});
 
-// ====================
-// Подменю фильтров (пример для Flow Alerts)
-// ====================
 bot.action('filters_flow_alerts', async (ctx) => {
   try {
     await ctx.answerCbQuery();
@@ -444,21 +430,25 @@ bot.action('filters_cex_tracking', async (ctx) => {
 });
 
 // ====================
-// ОБРАБОТКА КНОПКИ "← Back"
+// Обработка кнопки "← Back" в CEX Screen
 // ====================
 bot.action('back_from_cex', async (ctx) => {
-  await ctx.answerCbQuery();
-  showMainMenu(ctx);
+  try {
+    await ctx.answerCbQuery();
+    // Возвращаем пользователя в главное меню админ-бота
+    showMainMenu(ctx);
+  } catch (err) {
+    console.error("Error in back_from_cex:", err.message);
+  }
 });
 
 // ====================
-// Экспортируем функцию
+// Экспортируем настройки и функцию переключения (если требуется для других модулей)
 // ====================
 module.exports = {
   cexSettings,
   toggleSetting
 };
-
 
 
 
