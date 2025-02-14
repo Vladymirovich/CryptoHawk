@@ -208,7 +208,7 @@ try {
 bot.action('menu_cex_screen', async (ctx) => {
   try {
     await ctx.answerCbQuery();
-    showCexMenu(ctx);
+    showCexMenu(ctx, true);
   } catch (err) {
     console.error("Error in menu_cex_screen action:", err.message);
   }
