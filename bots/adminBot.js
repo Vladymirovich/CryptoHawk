@@ -205,12 +205,12 @@ try {
 // ====================
 // CEX Screen меню
 // ====================
-bot.action('menu_cex', async (ctx) => {
+bot.action('menu_cex_screen', async (ctx) => {
   try {
     await ctx.answerCbQuery();
     showCexMenu(ctx);
   } catch (err) {
-    console.error("Error in menu_cex action:", err.message);
+    console.error("Error in menu_cex_screen action:", err.message);
   }
 });
 
@@ -257,7 +257,7 @@ function showCexMenu(ctx) {
       Markup.button.callback(`${getCexToggleLabel(label)}`, `toggle_${cexCategoryMapping[label]}`),
       Markup.button.callback("Filters ⚙️", `filters_${cexCategoryMapping[label]}`)
     ]).concat([
-      [Markup.button.callback("← Back", "back_from_cex")]
+      [Markup.button.callback("← Back", "back_from_cex_screen")]
     ])
   );
 
@@ -296,12 +296,12 @@ Object.keys(cexCategoryMapping).forEach((label) => {
 // ====================
 // ОБРАБОТКА КНОПКИ "← Back"
 // ====================
-bot.action('back_from_cex', async (ctx) => {
+bot.action('back_from_cex_screen', async (ctx) => {
   try {
     await ctx.answerCbQuery();
     showMainMenu(ctx);
   } catch (err) {
-    console.error("Error in back_from_cex:", err.message);
+    console.error("Error in back_from_cex_screen:", err.message);
   }
 });
 
@@ -316,7 +316,7 @@ Object.keys(cexCategoryMapping).forEach((label) => {
       const filterButtons = filterMapping[categoryKey].map((filter) => [
         Markup.button.callback(filter, `${categoryKey}_${filter.replace(/\s+/g, '_').toLowerCase()}`)
       ]);
-      filterButtons.push([Markup.button.callback("← Back", "menu_cex")]);
+      filterButtons.push([Markup.button.callback("← Back", "menu_cex_screen")]);
 
       await ctx.reply(
         `🔍 *${label} Filters*\n\nНастройте фильтры для категории ${label}:`,
