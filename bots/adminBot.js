@@ -269,16 +269,35 @@ function showCexMenu(ctx, edit = false) {
   ]);
   buttons.push([Markup.button.callback("← Back", "back_from_cex_screen")]);
   const keyboard = Markup.inlineKeyboard(buttons);
-  if (edit && ctx.update.callback_query && ctx.update.callback_query.message) {
-    return ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup })
-      .catch(err => {
-        logger.error("Error editing CEX menu text:", err.message);
-        return ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
-      });
-  } else {
-    return ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup })
-      .catch(err => logger.error("Error sending CEX menu message:", err.message));
+  try {
+    if (edit && ctx.update.callback_query && ctx.update.callback_query.message) {
+      return ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
+    } else {
+      return ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
+    }
+  } catch (error) {
+    logger.error("❌ Ошибка обновления меню CEX Screen:", error.message);
   }
+}
+
+// --------------------
+// Функция отображения подменю фильтров для определённой категории
+// --------------------
+function showFilterMenu(ctx, key, displayLabel) {
+  const filters = filterMapping[key];
+  const filterButtons = filters.map((filter) => {
+    if (filter === "💎 Избранные монеты" || filter === "🚫 Ненужные монеты") {
+      return [Markup.button.callback(filter, `${key}_input_${filter.replace(/\s+/g, '_').toLowerCase()}`)];
+    } else {
+      // Для остальных – отображаем текущее состояние фильтра (состояние хранится в cexUserFilters)
+      const current = (cexUserFilters[key] && cexUserFilters[key][filter]) ? true : false;
+      const stateIcon = current ? '✅' : '❌';
+      return [Markup.button.callback(`${filter} ${stateIcon}`, `${key}_toggle_${filter.replace(/\s+/g, '_').toLowerCase()}`)];
+    }
+  });
+  filterButtons.push([Markup.button.callback("← Back", "menu_cex_screen")]);
+  const text = `🔍 *${displayLabel} Filters*\n\nНастройте фильтры для категории ${displayLabel}:`;
+  return ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: Markup.inlineKeyboard(filterButtons).reply_markup });
 }
 
 // --------------------
@@ -289,11 +308,12 @@ function toggleCexSetting(ctx, key) {
   cexSettings[key].active = !cexSettings[key].active;
   ctx.answerCbQuery(`${key.replace(/_/g, " ")} теперь ${cexSettings[key].active ? 'Включен ✅' : 'Выключен ❌'}`)
     .catch(err => logger.error("Error sending callback answer:", err.message));
-  // Обновляем главное меню CEX Screen с сохранением фильтров
   showCexMenu(ctx, true);
 }
 
+// --------------------
 // Обработчики переключения для CEX параметров (динамически по маппингу)
+// --------------------
 Object.keys(cexCategoryMapping).forEach((label) => {
   const key = cexCategoryMapping[label];
   bot.action(`toggle_${key}`, async (ctx) => {
@@ -305,39 +325,33 @@ Object.keys(cexCategoryMapping).forEach((label) => {
   });
 });
 
+// --------------------
 // Обработка кнопки "← Back" для CEX Screen
+// --------------------
 bot.action('back_from_cex_screen', async (ctx) => {
   try {
     await ctx.answerCbQuery();
-    showMainMenu(ctx); // Функция showMainMenu(ctx) должна быть определена в основном файле админ-бота
+    showMainMenu(ctx); // Предполагается, что showMainMenu(ctx) определена в основном файле админ-бота
   } catch (err) {
     logger.error("Error in back_from_cex_screen:", err.message);
   }
 });
 
 // --------------------
-// Функция отображения подменю фильтров для определённой категории
+// Подменю фильтров для всех категорий CEX Screen
 // --------------------
-function showFilterMenu(ctx, key, displayLabel) {
-  const filters = filterMapping[key];
-  const filterButtons = filters.map((filter) => {
-    if (filter === "💎 Избранные монеты" || filter === "🚫 Ненужные монеты") {
-      return [Markup.button.callback(filter, `${key}_input_${filter.replace(/\s+/g, '_').toLowerCase()}`)];
-    } else {
-      const current = (cexUserFilters[key] && cexUserFilters[key][filter]) ? true : false;
-      const stateIcon = current ? '✅' : '❌';
-      return [Markup.button.callback(`${filter} ${stateIcon}`, `${key}_toggle_${filter.replace(/\s+/g, '_').toLowerCase()}`)];
+Object.keys(cexCategoryMapping).forEach((label) => {
+  const key = cexCategoryMapping[label];
+  bot.action(`filters_${key}`, async (ctx) => {
+    try {
+      await ctx.answerCbQuery();
+      const displayLabel = Object.keys(cexCategoryMapping).find(l => cexCategoryMapping[l] === key) || key;
+      await showFilterMenu(ctx, key, displayLabel);
+    } catch (err) {
+      logger.error(`Error in filters_${key}:`, err.message);
     }
   });
-  // Добавляем кнопку "← Back" для возврата в меню CEX Screen
-  filterButtons.push([Markup.button.callback("← Back", "menu_cex_screen")]);
-  const text = `🔍 *${displayLabel} Filters*\n\nНастройте фильтры для категории ${displayLabel}:`;
-  return ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: Markup.inlineKeyboard(filterButtons).reply_markup })
-    .catch(err => {
-      logger.error(`Error updating filter menu for ${displayLabel}:`, err.message);
-      return ctx.reply(text, { parse_mode: 'Markdown', reply_markup: Markup.inlineKeyboard(filterButtons).reply_markup });
-    });
-}
+});
 
 // --------------------
 // Обработчики для фильтров, требующих текстового ввода (например, "💎 Избранные монеты" и "🚫 Ненужные монеты")
@@ -381,8 +395,10 @@ function showFilterMenu(ctx, key, displayLabel) {
   });
 });
 
+
 // --------------------
 // Обработчики для остальных фильтров – переключение состояния (без ввода)
+// --------------------
 Object.keys(filterMapping).forEach((key) => {
   filterMapping[key].forEach((filter) => {
     if (filter !== "💎 Избранные монеты" && filter !== "🚫 Ненужные монеты") {
@@ -406,16 +422,7 @@ Object.keys(filterMapping).forEach((key) => {
 });
 
 // --------------------
-// Экспортируем функции (если требуется для использования в других модулях)
-// --------------------
-module.exports = {
-  cexSettings,
-  toggleSetting: toggleCexSetting,
-  showCexMenu
-};
-
-// --------------------
-// Экспортируем функции (если требуется для использования в других модулях)
+// Экспорт функций (если требуется для использования в других модулях)
 // --------------------
 module.exports = {
   cexSettings,
