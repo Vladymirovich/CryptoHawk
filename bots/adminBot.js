@@ -214,9 +214,9 @@ bot.action('menu_cex_screen', async (ctx) => {
   }
 });
 
-// ====================
-// Глобальные настройки CEX Screen
-// ====================
+const { cexUserFilters, saveSettings } = require('../CEX/settings');
+
+// Глобальные настройки CEX Screen (переключатели событий)
 const cexSettings = {
   flowAlerts: { active: false },
   cexTracking: { active: false },
@@ -226,9 +226,7 @@ const cexSettings = {
   allDerivativesPercent: { active: false }
 };
 
-// ====================
-// Маппинг ярлыков к настройкам
-// ====================
+// Маппинг ярлыков кнопок к настройкам
 const cexCategoryMapping = {
   "Flow Alerts": "flowAlerts",
   "CEX Tracking": "cexTracking",
@@ -238,6 +236,7 @@ const cexCategoryMapping = {
   "All Derivatives%": "allDerivativesPercent"
 };
 
+// Маппинг фильтров для каждой категории
 const filterMapping = {
   flowAlerts: ["💎 Избранные монеты", "🚫 Ненужные монеты", "🤖 AutoTrack"],
   cexTracking: ["💎 Избранные монеты", "🚫 Ненужные монеты", "📊 Rate +-5%", "📊 Rate +-10%", "⏳ 60 sec +-1%", "🤖 AutoTrack"],
@@ -247,115 +246,164 @@ const filterMapping = {
   allDerivativesPercent: ["5min", "30min", "60min", "24hrs", "Buy", "Sell"]
 };
 
-// ====================
-// Функция формирования текста кнопки (✅ / ❌)
-// ====================
+// Функция формирования текста кнопки (с галочкой/крестиком)
 function getCexToggleLabel(label) {
   const key = cexCategoryMapping[label];
   if (!key || !cexSettings[key]) {
-    console.error(`Error: Ключ '${label}' не найден в cexSettings`);
+    logger.error(`Error: Ключ '${label}' не найден в cexSettings`);
     return `❌ ${label}`;
   }
   return cexSettings[key].active ? `✅ ${label}` : `❌ ${label}`;
 }
 
-// ====================
-// Функция отображения меню CEX Screen
-// ====================
+// Функция отображения главного меню CEX Screen
 function showCexMenu(ctx, edit = false) {
   const text = "🔍 *CEX Screen Settings*\n\nВыберите параметры, которые хотите отслеживать:";
-  // Формируем массив строк кнопок с парой: переключатель + кнопка фильтров
+  // Для каждой категории – две кнопки: переключатель и кнопка фильтров
   const buttons = Object.keys(cexCategoryMapping).map((label) => [
     Markup.button.callback(getCexToggleLabel(label), `toggle_${cexCategoryMapping[label]}`),
     Markup.button.callback("Filters ⚙️", `filters_${cexCategoryMapping[label]}`)
   ]);
-  // Добавляем строку с кнопкой "← Back"
+  // Добавляем кнопку «← Back»
   buttons.push([Markup.button.callback("← Back", "back_from_cex_screen")]);
-  
   const keyboard = Markup.inlineKeyboard(buttons);
-  
   try {
     if (edit && ctx.update.callback_query && ctx.update.callback_query.message) {
-      // Если нужно отредактировать существующее сообщение
       ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup })
-        .catch(err => console.error("Error editing CEX menu text:", err.message));
+        .catch(err => logger.error("Error editing CEX menu text:", err.message));
     } else {
-      // Иначе отправляем новое сообщение
       ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup })
-        .catch(err => console.error("Error sending CEX menu message:", err.message));
+        .catch(err => logger.error("Error sending CEX menu message:", err.message));
     }
   } catch (error) {
-    console.error("❌ Ошибка обновления меню CEX Screen:", error.message);
+    logger.error("❌ Ошибка обновления меню CEX Screen:", error.message);
   }
 }
 
-// ====================
 // Универсальная функция переключения состояния для CEX Screen
-// ====================
 function toggleCexSetting(ctx, key) {
   if (!cexSettings[key]) return;
   cexSettings[key].active = !cexSettings[key].active;
   ctx.answerCbQuery(`${key.replace(/_/g, " ")} теперь ${cexSettings[key].active ? 'Включен ✅' : 'Выключен ❌'}`)
-    .catch(err => console.error("Error sending callback answer:", err.message));
+    .catch(err => logger.error("Error sending callback answer:", err.message));
   showCexMenu(ctx, true);
 }
 
-// ====================
 // Обработчики переключения для CEX параметров (динамически по маппингу)
-// ====================
 Object.keys(cexCategoryMapping).forEach((label) => {
   const key = cexCategoryMapping[label];
   bot.action(`toggle_${key}`, async (ctx) => {
     try {
       await toggleCexSetting(ctx, key);
     } catch (err) {
-      console.error(`Error in toggle_${key}:`, err.message);
+      logger.error(`Error in toggle_${key}:`, err.message);
     }
   });
 });
 
-// ====================
 // Обработка кнопки "← Back" для CEX Screen
-// ====================
 bot.action('back_from_cex_screen', async (ctx) => {
   try {
     await ctx.answerCbQuery();
-    // Предполагается, что функция showMainMenu определена в основном файле админ бота
     showMainMenu(ctx);
   } catch (err) {
-    console.error("Error in back_from_cex_screen:", err.message);
+    logger.error("Error in back_from_cex_screen:", err.message);
   }
 });
 
-// ====================
 // Подменю фильтров для всех категорий CEX Screen
-// ====================
 Object.keys(cexCategoryMapping).forEach((label) => {
   const key = cexCategoryMapping[label];
   bot.action(`filters_${key}`, async (ctx) => {
     try {
       await ctx.answerCbQuery();
       const filters = filterMapping[key];
-      // Формируем кнопки фильтров – каждый фильтр в отдельной кнопке
-      const filterButtons = filters.map((filter) => [
-        Markup.button.callback(filter, `${key}_${filter.replace(/\s+/g, '_').toLowerCase()}`)
-      ]);
+      // Формируем кнопки фильтров – если фильтр требует ввода, используем отдельный обработчик
+      const filterButtons = filters.map((filter) => {
+        // Для кнопок "💎 Избранные монеты" и "🚫 Ненужные монеты" требуется ввод
+        if (filter === "💎 Избранные монеты" || filter === "🚫 Ненужные монеты") {
+          return [
+            Markup.button.callback(filter, `${key}_input_${filter.replace(/\s+/g, '_').toLowerCase()}`)
+          ];
+        } else {
+          // Для остальных – просто переключение состояния (добавим символы с правой стороны)
+          return [
+            Markup.button.callback(filter, `${key}_toggle_${filter.replace(/\s+/g, '_').toLowerCase()}`)
+          ];
+        }
+      });
       // Добавляем кнопку "← Back" для возврата в главное меню CEX Screen
       filterButtons.push([Markup.button.callback("← Back", "menu_cex_screen")]);
-      
       await ctx.editMessageText(
         `🔍 *${label} Filters*\n\nНастройте фильтры для категории ${label}:`,
         { parse_mode: 'Markdown', reply_markup: Markup.inlineKeyboard(filterButtons).reply_markup }
       );
     } catch (err) {
-      console.error(`Error in filters_${key}:`, err.message);
+      logger.error(`Error in filters_${key}:`, err.message);
     }
   });
 });
 
-// ====================
-// Экспортируем функции (если требуется для использования в других модулях)
-// ====================
+// Обработчики для фильтров, требующих текстового ввода
+// Пример для flowAlerts: "💎 Избранные монеты" и "🚫 Ненужные монеты"
+["flowAlerts", "cexTracking"].forEach((category) => {
+  ["💎 Избранные монеты", "🚫 Ненужные монеты"].forEach((filter) => {
+    const actionId = `${category}_input_${filter.replace(/\s+/g, '_').toLowerCase()}`;
+    bot.action(actionId, async (ctx) => {
+      try {
+        await ctx.answerCbQuery();
+        // Запрашиваем у пользователя ввод монет через запятую
+        await ctx.reply(`Введите список монет для фильтра "${filter}" (разделённых запятыми):`);
+        // Устанавливаем одноразовый обработчик для следующего текстового сообщения от этого пользователя
+        const onText = async (newCtx) => {
+          if (newCtx.chat.id === ctx.chat.id) {
+            const userInput = newCtx.message.text;
+            // Сохраняем введённое значение в настройках для данной категории и фильтра
+            if (!cexUserFilters[category]) {
+              cexUserFilters[category] = {};
+            }
+            cexUserFilters[category][filter] = userInput;
+            saveSettings(cexUserFilters);
+            await newCtx.reply(`Настройки для фильтра "${filter}" сохранены: ${userInput}`);
+            // Убираем этот обработчик
+            bot.off('text', onText);
+          }
+        };
+        bot.on('text', onText);
+      } catch (err) {
+        logger.error(`Error handling input for ${actionId}:`, err.message);
+      }
+    });
+  });
+});
+
+// Обработчики для остальных фильтров – просто переключение состояния
+// Здесь можно хранить состояние фильтра в cexUserFilters как boolean
+Object.keys(filterMapping).forEach((key) => {
+  filterMapping[key].forEach((filter) => {
+    // Если фильтр не требует ввода (то есть не равен "💎 Избранные монеты" и "🚫 Ненужные монеты")
+    if (filter !== "💎 Избранные монеты" && filter !== "🚫 Ненужные монеты") {
+      const actionId = `${key}_toggle_${filter.replace(/\s+/g, '_').toLowerCase()}`;
+      bot.action(actionId, async (ctx) => {
+        try {
+          await ctx.answerCbQuery();
+          // Переключаем состояние фильтра (сохраняем в cexUserFilters)
+          if (!cexUserFilters[key]) {
+            cexUserFilters[key] = {};
+          }
+          cexUserFilters[key][filter] = !cexUserFilters[key][filter];
+          saveSettings(cexUserFilters);
+          const stateIcon = cexUserFilters[key][filter] ? '✅' : '❌';
+          await ctx.reply(`Фильтр "${filter}" теперь ${stateIcon}`);
+        } catch (err) {
+          logger.error(`Error toggling filter ${actionId}:`, err.message);
+        }
+      });
+    }
+  });
+});
+
+// Экспортируем функции, если необходимо для использования в других модулях
 module.exports = {
   cexSettings,
   toggleSetting: toggleCexSetting,
