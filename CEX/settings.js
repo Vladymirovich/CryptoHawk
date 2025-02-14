@@ -3,17 +3,29 @@ const path = require('path');
 
 const settingsPath = path.join(__dirname, 'cexSettings.json');
 
-// Функция загрузки настроек (если файл существует, иначе пустой объект)
+// Значения по умолчанию для настроек фильтров CEX Screen
+const defaultCexSettings = {
+  flowAlerts: {},
+  cexTracking: {},
+  allSpot: {},
+  allDerivatives: {},
+  allSpotPercent: {},
+  allDerivativesPercent: {}
+};
+
+// Функция загрузки настроек (если файл существует, возвращает данные с применением значений по умолчанию)
 function loadSettings() {
   try {
     if (fs.existsSync(settingsPath)) {
       const data = fs.readFileSync(settingsPath, 'utf8');
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      // Объединяем значения по умолчанию с загруженными данными (приоритет у загруженных)
+      return { ...defaultCexSettings, ...parsed };
     }
   } catch (err) {
     console.error("Error loading CEX settings:", err.message);
   }
-  return {};
+  return { ...defaultCexSettings };
 }
 
 // Функция сохранения настроек в файл
