@@ -335,7 +335,8 @@ Object.keys(cexCategoryMapping).forEach((label) => {
 // ====================
 module.exports = {
   cexSettings,
-  toggleCexSetting
+  toggleCexSetting,
+  showCexMenu
 };
 
 
