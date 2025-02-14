@@ -21,7 +21,7 @@
     "body-parser": "1.20.3",
     "systeminformation": "5.25.11",
     "puppeteer": "^24.2.0",
-    "PM2": "5.4.3",
+    "pm2": "5.4.3",
     "chartjs-node-canvas": "4.1.6"
   }
 }
