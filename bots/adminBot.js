@@ -238,8 +238,17 @@ const cexCategoryMapping = {
   "All Derivatives%": "allDerivativesPercent"
 };
 
+const filterMapping = {
+  flowAlerts: ["💎 Избранные монеты", "🚫 Ненужные монеты", "🤖 AutoTrack"],
+  cexTracking: ["💎 Избранные монеты", "🚫 Ненужные монеты", "📊 Rate +-5%", "📊 Rate +-10%", "⏳ 60 sec +-1%", "🤖 AutoTrack"],
+  allSpot: ["5min", "30min", "60min", "24hrs", "Buy", "Sell"],
+  allDerivatives: ["5min", "30min", "60min", "24hrs", "Buy", "Sell"],
+  allSpotPercent: ["5min", "30min", "60min", "24hrs", "Buy", "Sell"],
+  allDerivativesPercent: ["5min", "30min", "60min", "24hrs", "Buy", "Sell"]
+};
+
 // ====================
-// Генерация и отображение меню CEX Screen
+// Генерация и отображение меню кнопки CEX Screen
 // ====================
 function showCexMenu(ctx) {
   const text = "🔍 *CEX Screen Settings*\n\nВыберите параметры, которые хотите отслеживать:";
@@ -253,11 +262,7 @@ function showCexMenu(ctx) {
   );
 
   try {
-    if (ctx.update.callback_query && ctx.update.callback_query.message) {
-      ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
-    } else {
-      ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
-    }
+    ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
   } catch (error) {
     console.error("❌ Ошибка обновления меню CEX Screen:", error.message);
   }
@@ -303,21 +308,14 @@ bot.action('back_from_cex', async (ctx) => {
 // ====================
 // Подменю фильтров для всех категорий
 // ====================
-const filterOptions = {
-  flowAlerts: ["💎 Избранные монеты", "🚫 Ненужные монеты", "🤖 AutoTrack"],
-  cexTracking: ["💎 Избранные монеты", "🚫 Ненужные монеты", "📊 Rate +-5%", "📊 Rate +-10%", "⏳ 60 sec +-1%", "🤖 AutoTrack"],
-  allSpot: ["5min", "30min", "60min", "24hrs", "Buy", "Sell"],
-  allDerivatives: ["5min", "30min", "60min", "24hrs", "Buy", "Sell"],
-  allSpotPercent: ["5min", "30min", "60min", "24hrs", "Buy", "Sell"],
-  allDerivativesPercent: ["5min", "30min", "60min", "24hrs", "Buy", "Sell"]
-};
-
 Object.keys(cexCategoryMapping).forEach((label) => {
   bot.action(`filters_${cexCategoryMapping[label]}`, async (ctx) => {
     try {
       await ctx.answerCbQuery();
       const categoryKey = cexCategoryMapping[label];
-      const filterButtons = filterOptions[categoryKey].map((filter) => [Markup.button.callback(filter, `${categoryKey}_${filter.replace(/\s+/g, '_').toLowerCase()}`)]);
+      const filterButtons = filterMapping[categoryKey].map((filter) => [
+        Markup.button.callback(filter, `${categoryKey}_${filter.replace(/\s+/g, '_').toLowerCase()}`)
+      ]);
       filterButtons.push([Markup.button.callback("← Back", "menu_cex")]);
 
       await ctx.reply(
