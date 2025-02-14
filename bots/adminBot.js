@@ -87,39 +87,6 @@ function showMainMenu(ctx) {
 }
 
 
-
-// ====================
-// IN-MEMORY НАСТРОЙКИ
-// ====================
-
-// Настройки для CEX Screen (по умолчанию – все отключены)
-const cexSettings = {
-  flowAlerts: { active: false },
-  cexTracking: { active: false },
-  allSpot: { active: false },
-  allDerivatives: { active: false },
-  allSpotPercent: { active: false },
-  allDerivativesPercent: { active: false }
-};
-
-// ====================
-// Маппинги для формирования ярлыков в меню
-// ====================
-const cexCategoryMapping = {
-  "Flow Alerts": "flowAlerts",
-  "CEX Tracking": "cexTracking",
-  "All Spot": "allSpot",
-  "All Derivatives": "allDerivatives",
-  "All Spot%": "allSpotPercent",
-  "All Derivatives%": "allDerivativesPercent"
-};
-
-
-
-
-
-
-
 // ====================
 // ОБРАБОТКА ПОДМЕНЮ "MarketStats"
 // ====================
@@ -232,6 +199,148 @@ try {
   console.error("❌ Ошибка загрузки MarketStats Bot:", error.message);
   marketStatsBot = null;
 }
+
+
+
+// ====================
+// CEX Screen - Главное меню
+// ====================
+bot.action('menu_cex', async (ctx) => {
+  await ctx.answerCbQuery();
+  await ctx.reply("🔍 *CEX Screen Settings*\n\nВыберите параметры, которые хотите отслеживать:", {
+    parse_mode: 'Markdown',
+    reply_markup: Markup.inlineKeyboard([
+      [
+        Markup.button.callback(`Flow Alerts ${cexSettings.flowAlerts.active ? '✅' : '❌'}`, "toggle_flow_alerts"),
+        Markup.button.callback("Filters ⚙️", "filters_flow_alerts")
+      ],
+      [
+        Markup.button.callback(`CEX Tracking ${cexSettings.cexTracking.active ? '✅' : '❌'}`, "toggle_cex_tracking"),
+        Markup.button.callback("Filters ⚙️", "filters_cex_tracking")
+      ],
+      [
+        Markup.button.callback(`All Spot ${cexSettings.allSpot.active ? '✅' : '❌'}`, "toggle_all_spot"),
+        Markup.button.callback("Filters ⚙️", "filters_all_spot")
+      ],
+      [
+        Markup.button.callback(`All Derivatives ${cexSettings.allDerivatives.active ? '✅' : '❌'}`, "toggle_all_derivatives"),
+        Markup.button.callback("Filters ⚙️", "filters_all_derivatives")
+      ],
+      [
+        Markup.button.callback(`All Spot% ${cexSettings.allSpotPercent.active ? '✅' : '❌'}`, "toggle_all_spot_percent"),
+        Markup.button.callback("Filters ⚙️", "filters_all_spot_percent")
+      ],
+      [
+        Markup.button.callback(`All Derivatives% ${cexSettings.allDerivativesPercent.active ? '✅' : '❌'}`, "toggle_all_derivatives_percent"),
+        Markup.button.callback("Filters ⚙️", "filters_all_derivatives_percent")
+      ],
+      [
+        Markup.button.callback("← Back", "back_from_cex")
+      ]
+    ])
+  });
+});
+
+// ====================
+// IN-MEMORY НАСТРОЙКИ
+// ====================
+const cexSettings = {
+  flowAlerts: { active: false },
+  cexTracking: { active: false },
+  allSpot: { active: false },
+  allDerivatives: { active: false },
+  allSpotPercent: { active: false },
+  allDerivativesPercent: { active: false }
+};
+
+// ====================
+// Функция переключения состояний
+// ====================
+function toggleSetting(setting) {
+  cexSettings[setting].active = !cexSettings[setting].active;
+  return cexSettings[setting].active ? "✅" : "❌";
+}
+
+// ====================
+// Функции для активации/деактивации CEX параметров
+// ====================
+bot.action('toggle_flow_alerts', async (ctx) => {
+  await ctx.answerCbQuery();
+  await ctx.editMessageReplyMarkup(
+    Markup.inlineKeyboard([
+      [
+        Markup.button.callback(`Flow Alerts ${toggleSetting('flowAlerts')}`, "toggle_flow_alerts"),
+        Markup.button.callback("Filters ⚙️", "filters_flow_alerts")
+      ],
+      [Markup.button.callback("← Back", "menu_cex")]
+    ])
+  );
+});
+
+bot.action('toggle_cex_tracking', async (ctx) => {
+  await ctx.answerCbQuery();
+  await ctx.editMessageReplyMarkup(
+    Markup.inlineKeyboard([
+      [
+        Markup.button.callback(`CEX Tracking ${toggleSetting('cexTracking')}`, "toggle_cex_tracking"),
+        Markup.button.callback("Filters ⚙️", "filters_cex_tracking")
+      ],
+      [Markup.button.callback("← Back", "menu_cex")]
+    ])
+  );
+});
+
+// ====================
+// Подменю фильтров
+// ====================
+bot.action('filters_flow_alerts', async (ctx) => {
+  await ctx.answerCbQuery();
+  await ctx.reply("🔍 *Flow Alerts Filters*\n\nНастройте фильтры для отслеживания крупных транзакций:", {
+    parse_mode: 'Markdown',
+    reply_markup: Markup.inlineKeyboard([
+      [Markup.button.callback("💎 Избранные монеты", "flow_fav_coins")],
+      [Markup.button.callback("🚫 Ненужные монеты", "flow_exclude_coins")],
+      [Markup.button.callback("🤖 AutoTrack", "flow_autotrack")],
+      [Markup.button.callback("← Back", "menu_cex")]
+    ])
+  });
+});
+
+bot.action('filters_cex_tracking', async (ctx) => {
+  await ctx.answerCbQuery();
+  await ctx.reply("🔍 *CEX Tracking Filters*\n\nНастройте фильтры для отслеживания торговой активности:", {
+    parse_mode: 'Markdown',
+    reply_markup: Markup.inlineKeyboard([
+      [Markup.button.callback("💎 Избранные монеты", "cex_fav_coins")],
+      [Markup.button.callback("🚫 Ненужные монеты", "cex_exclude_coins")],
+      [Markup.button.callback("📊 Rate +-5%", "cex_rate_5")],
+      [Markup.button.callback("📊 Rate +-10%", "cex_rate_10")],
+      [Markup.button.callback("⏳ 60 sec +-1%", "cex_rate_1m")],
+      [Markup.button.callback("🤖 AutoTrack", "cex_autotrack")],
+      [Markup.button.callback("← Back", "menu_cex")]
+    ])
+  });
+});
+
+// ====================
+// ОБРАБОТКА КНОПКИ "← Back"
+// ====================
+bot.action('back_from_cex', async (ctx) => {
+  await ctx.answerCbQuery();
+  showMainMenu(ctx);
+});
+
+// ====================
+// Экспортируем функцию
+// ====================
+module.exports = {
+  cexSettings,
+  toggleSetting
+};
+
+
+
+
 
 // ====================
 // ОБРАБОТКА КНОПКИ "Activate Bots" – подменю
