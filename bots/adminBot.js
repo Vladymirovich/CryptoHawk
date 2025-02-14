@@ -301,9 +301,6 @@ bot.action('menu_status', async (ctx) => {
   }
 });
 
-// ====================
-// Функция обработки кнопки "Restart Server"
-// ====================
 bot.action('restart_server', async (ctx) => {
   await ctx.answerCbQuery();
   try {
@@ -312,16 +309,11 @@ bot.action('restart_server', async (ctx) => {
     require('child_process').exec(
       `if [ -f /.dockerenv ]; then 
          echo "🚀 Docker detected. Restarting container..."; 
-         container_id=$(cat /proc/self/cgroup | grep "docker" | sed 's/.*\///' | tail -n1); 
-         if [ -n "$container_id" ]; then 
-           docker restart $container_id; 
-         else 
-           echo "❌ Error: Could not determine Docker container ID."; 
-           exit 1; 
-         fi 
-       elif command -v pm2 &> /dev/null && pm2 list | grep -q "online"; then 
+         container_id=$(hostname); 
+         docker restart $container_id && echo "✅ Docker container restarted." || echo "❌ Failed to restart Docker container.";
+       elif command -v pm2 &> /dev/null && pm2 status | grep -q "online"; then 
          echo "🔄 PM2 detected. Restarting process..."; 
-         pm2 restart all; 
+         pm2 restart all && echo "✅ PM2 processes restarted." || echo "❌ Failed to restart PM2 processes.";
        else 
          echo "❌ Error: Neither Docker nor PM2 detected. Ensure you are running inside a known environment."; 
          exit 1; 
