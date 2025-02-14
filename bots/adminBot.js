@@ -248,24 +248,41 @@ const filterMapping = {
 };
 
 // ====================
-// Генерация и отображение меню кнопки CEX Screen
+// Функция формирования текста кнопки (✅ / ❌)
+// ====================
+function getCexToggleLabel(label) {
+  const key = cexCategoryMapping[label];
+  if (!key || !cexSettings[key]) {
+    console.error(`Error: Ключ '${label}' не найден в cexSettings`);
+    return `❌ ${label}`;
+  }
+  return cexSettings[key].active ? `✅ ${label}` : `❌ ${label}`;
+}
+
+// ====================
+// Функция отображения меню CEX Screen
 // ====================
 function showCexMenu(ctx, edit = false) {
   const text = "🔍 *CEX Screen Settings*\n\nВыберите параметры, которые хотите отслеживать:";
-  const keyboard = Markup.inlineKeyboard(
-    Object.keys(cexCategoryMapping).map((label) => [
-      Markup.button.callback(`${getCexToggleLabel(label)}`, `toggle_${cexCategoryMapping[label]}`),
-      Markup.button.callback("Filters ⚙️", `filters_${cexCategoryMapping[label]}`)
-    ]).concat([
-      [Markup.button.callback("← Back", "back_from_cex_screen")]
-    ])
-  );
-
+  // Формируем массив строк кнопок с парой: переключатель + кнопка фильтров
+  const buttons = Object.keys(cexCategoryMapping).map((label) => [
+    Markup.button.callback(getCexToggleLabel(label), `toggle_${cexCategoryMapping[label]}`),
+    Markup.button.callback("Filters ⚙️", `filters_${cexCategoryMapping[label]}`)
+  ]);
+  // Добавляем строку с кнопкой "← Back"
+  buttons.push([Markup.button.callback("← Back", "back_from_cex_screen")]);
+  
+  const keyboard = Markup.inlineKeyboard(buttons);
+  
   try {
-    if (edit) {
-      ctx.editMessageReplyMarkup(keyboard);
+    if (edit && ctx.update.callback_query && ctx.update.callback_query.message) {
+      // Если нужно отредактировать существующее сообщение
+      ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup })
+        .catch(err => console.error("Error editing CEX menu text:", err.message));
     } else {
-      ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
+      // Иначе отправляем новое сообщение
+      ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup })
+        .catch(err => console.error("Error sending CEX menu message:", err.message));
     }
   } catch (error) {
     console.error("❌ Ошибка обновления меню CEX Screen:", error.message);
@@ -273,35 +290,37 @@ function showCexMenu(ctx, edit = false) {
 }
 
 // ====================
-// Формирование текста кнопки (✅ / ❌)
+// Универсальная функция переключения состояния для CEX Screen
 // ====================
-function getCexToggleLabel(label) {
-  const key = cexCategoryMapping[label];
-  return cexSettings[key].active ? `✅ ${label}` : `❌ ${label}`;
-}
-
-// 🔄 Универсальная функция переключения событий
 function toggleCexSetting(ctx, key) {
   if (!cexSettings[key]) return;
-
   cexSettings[key].active = !cexSettings[key].active;
-  ctx.answerCbQuery(`${key.replace(/_/g, " ")} теперь ${cexSettings[key].active ? 'Включен ✅' : 'Выключен ❌'}`);
+  ctx.answerCbQuery(`${key.replace(/_/g, " ")} теперь ${cexSettings[key].active ? 'Включен ✅' : 'Выключен ❌'}`)
+    .catch(err => console.error("Error sending callback answer:", err.message));
   showCexMenu(ctx, true);
 }
 
 // ====================
-// Обработчики переключения состояний
+// Обработчики переключения для CEX параметров (динамически по маппингу)
 // ====================
 Object.keys(cexCategoryMapping).forEach((label) => {
-  bot.action(`toggle_${cexCategoryMapping[label]}`, async (ctx) => toggleCexSetting(ctx, cexCategoryMapping[label]));
+  const key = cexCategoryMapping[label];
+  bot.action(`toggle_${key}`, async (ctx) => {
+    try {
+      await toggleCexSetting(ctx, key);
+    } catch (err) {
+      console.error(`Error in toggle_${key}:`, err.message);
+    }
+  });
 });
 
 // ====================
-// ОБРАБОТКА КНОПКИ "← Back"
+// Обработка кнопки "← Back" для CEX Screen
 // ====================
 bot.action('back_from_cex_screen', async (ctx) => {
   try {
     await ctx.answerCbQuery();
+    // Предполагается, что функция showMainMenu определена в основном файле админ бота
     showMainMenu(ctx);
   } catch (err) {
     console.error("Error in back_from_cex_screen:", err.message);
@@ -309,34 +328,39 @@ bot.action('back_from_cex_screen', async (ctx) => {
 });
 
 // ====================
-// Подменю фильтров для всех категорий
+// Подменю фильтров для всех категорий CEX Screen
 // ====================
 Object.keys(cexCategoryMapping).forEach((label) => {
-  bot.action(`filters_${cexCategoryMapping[label]}`, async (ctx) => {
+  const key = cexCategoryMapping[label];
+  bot.action(`filters_${key}`, async (ctx) => {
     try {
       await ctx.answerCbQuery();
-      const categoryKey = cexCategoryMapping[label];
-      const filterButtons = filterMapping[categoryKey].map((filter) => [
-        Markup.button.callback(filter, `${categoryKey}_${filter.replace(/\s+/g, '_').toLowerCase()}`)
+      const filters = filterMapping[key];
+      // Формируем кнопки фильтров – каждый фильтр в отдельной кнопке
+      const filterButtons = filters.map((filter) => [
+        Markup.button.callback(filter, `${key}_${filter.replace(/\s+/g, '_').toLowerCase()}`)
       ]);
+      // Добавляем кнопку "← Back" для возврата в главное меню CEX Screen
       filterButtons.push([Markup.button.callback("← Back", "menu_cex_screen")]);
-
-      ctx.editMessageReplyMarkup(Markup.inlineKeyboard(filterButtons));
+      
+      await ctx.editMessageText(
+        `🔍 *${label} Filters*\n\nНастройте фильтры для категории ${label}:`,
+        { parse_mode: 'Markdown', reply_markup: Markup.inlineKeyboard(filterButtons).reply_markup }
+      );
     } catch (err) {
-      console.error(`Error in filters_${cexCategoryMapping[label]}:`, err.message);
+      console.error(`Error in filters_${key}:`, err.message);
     }
   });
 });
 
 // ====================
-// Экспортируем функции
+// Экспортируем функции (если требуется для использования в других модулях)
 // ====================
 module.exports = {
   cexSettings,
-  toggleCexSetting,
+  toggleSetting: toggleCexSetting,
   showCexMenu
 };
-
 
 
 
