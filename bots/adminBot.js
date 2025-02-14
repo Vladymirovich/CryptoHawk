@@ -207,7 +207,7 @@ try {
 // ====================
 bot.action('menu_cex', async (ctx) => {
   await ctx.answerCbQuery();
-  await ctx.reply("🔍 *CEX Screen Settings*\n\nВыберите параметры, которые хотите отслеживать:", {
+  await ctx.editMessageText("🔍 *CEX Screen Settings*\n\nВыберите параметры, которые хотите отслеживать:", {
     parse_mode: 'Markdown',
     reply_markup: Markup.inlineKeyboard([
       [
@@ -251,6 +251,18 @@ const cexSettings = {
   allDerivatives: { active: false },
   allSpotPercent: { active: false },
   allDerivativesPercent: { active: false }
+};
+
+// ====================
+// Маппинги для формирования ярлыков в меню
+// ====================
+const cexCategoryMapping = {
+  "Flow Alerts": "flowAlerts",
+  "CEX Tracking": "cexTracking",
+  "All Spot": "allSpot",
+  "All Derivatives": "allDerivatives",
+  "All Spot%": "allSpotPercent",
+  "All Derivatives%": "allDerivativesPercent"
 };
 
 // ====================
