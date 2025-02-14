@@ -304,17 +304,19 @@ bot.action('menu_status', async (ctx) => {
 // ====================
 // Функция обработки кнопки "Restart Server"
 // ====================
-bot.action("restart_server", async (ctx) => {
+bot.action('restart_server', async (ctx) => {
   await ctx.answerCbQuery();
   try {
     await ctx.reply("🔄 Restarting server...");
-    require("child_process").exec("pm2 restart all || echo 'PM2 not installed'", (error, stdout, stderr) => {
+
+    require('child_process').exec('if [ -f /.dockerenv ]; then docker restart $(hostname); else pm2 restart index; fi', (error, stdout, stderr) => {
       if (error) {
-        ctx.reply(`❌ Error restarting server: ${stderr || error.message}`);
+        ctx.reply(`❌ Error restarting server: ${error.message}`);
       } else {
         ctx.reply("✅ Server restarted successfully.");
       }
     });
+
   } catch (err) {
     await ctx.reply(`❌ Error executing restart: ${err.message}`);
   }
@@ -346,28 +348,33 @@ async function getServerMetrics() {
   const processCount = procData.all;
 
   // ✅ ДИНАМИЧЕСКИЙ ЗАПРОС API ENDPOINTS & WEBHOOKS
-  let apiEndpoints = 0;
-  let webhooksConnected = 0;
-  try {
+ let apiEndpoints = 0;
+let webhooksConnected = 0;
+
+try {
     const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
     const [apiResponse, webhooksResponse] = await Promise.all([
-      fetch(`${url}api/endpoints`, { timeout: 5000 }).catch(() => null),
-      fetch(`${url}api/webhooks`, { timeout: 5000 }).catch(() => null)
+        fetch("http://localhost:3000/api/endpoints", { timeout: 5000 }),
+        fetch("http://localhost:3000/api/webhooks", { timeout: 5000 })
     ]);
 
-    if (apiResponse && apiResponse.ok) {
-      const apiData = await apiResponse.json();
-      apiEndpoints = Array.isArray(apiData) ? apiData.length : 0;
+    if (apiResponse.ok) {
+        const apiData = await apiResponse.json();
+        apiEndpoints = Array.isArray(apiData) ? apiData.length : 0;
+    } else {
+        console.error("❌ API response error:", apiResponse.status);
     }
 
-    if (webhooksResponse && webhooksResponse.ok) {
-      const webhookData = await webhooksResponse.json();
-      webhooksConnected = Array.isArray(webhookData) ? webhookData.length : 0;
+    if (webhooksResponse.ok) {
+        const webhookData = await webhooksResponse.json();
+        webhooksConnected = Array.isArray(webhookData) ? webhookData.length : 0;
+    } else {
+        console.error("❌ Webhook response error:", webhooksResponse.status);
     }
-  } catch (err) {
+} catch (err) {
     console.error("❌ Error fetching API/Webhooks:", err.message);
-  }
+}
 
   // Определение стабильности API & Webhooks
   const apiStability = responseTime < 500 && apiEndpoints > 0 ? "✅ Stable" : "⚠️ Unstable";
