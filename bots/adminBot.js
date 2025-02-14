@@ -250,7 +250,7 @@ const filterMapping = {
 // ====================
 // Генерация и отображение меню кнопки CEX Screen
 // ====================
-function showCexMenu(ctx) {
+function showCexMenu(ctx, edit = false) {
   const text = "🔍 *CEX Screen Settings*\n\nВыберите параметры, которые хотите отслеживать:";
   const keyboard = Markup.inlineKeyboard(
     Object.keys(cexCategoryMapping).map((label) => [
@@ -262,7 +262,11 @@ function showCexMenu(ctx) {
   );
 
   try {
-    ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
+    if (edit) {
+      ctx.editMessageReplyMarkup(keyboard);
+    } else {
+      ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
+    }
   } catch (error) {
     console.error("❌ Ошибка обновления меню CEX Screen:", error.message);
   }
@@ -282,8 +286,7 @@ function toggleCexSetting(ctx, key) {
 
   cexSettings[key].active = !cexSettings[key].active;
   ctx.answerCbQuery(`${key.replace(/_/g, " ")} теперь ${cexSettings[key].active ? 'Включен ✅' : 'Выключен ❌'}`);
-
-  showCexMenu(ctx);
+  showCexMenu(ctx, true);
 }
 
 // ====================
@@ -318,10 +321,7 @@ Object.keys(cexCategoryMapping).forEach((label) => {
       ]);
       filterButtons.push([Markup.button.callback("← Back", "menu_cex_screen")]);
 
-      await ctx.reply(
-        `🔍 *${label} Filters*\n\nНастройте фильтры для категории ${label}:`,
-        { parse_mode: 'Markdown', reply_markup: Markup.inlineKeyboard(filterButtons) }
-      );
+      ctx.editMessageReplyMarkup(Markup.inlineKeyboard(filterButtons));
     } catch (err) {
       console.error(`Error in filters_${cexCategoryMapping[label]}:`, err.message);
     }
@@ -336,6 +336,7 @@ module.exports = {
   toggleCexSetting,
   showCexMenu
 };
+
 
 
 
