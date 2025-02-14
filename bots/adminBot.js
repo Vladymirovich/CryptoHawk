@@ -278,8 +278,12 @@ bot.action('menu_status', async (ctx) => {
     const { text, images } = await getDetailedServerStatus();
     let mediaGroup = [];
     try {
-      // Генерируем изображения
+      // Генерация графиков
       const { memPath, cpuPath, diskPath } = await generateAllGauges(images);
+
+      if (!memPath || !cpuPath || !diskPath) {
+        throw new Error('Error generating some gauges.');
+      }
 
       mediaGroup = [
         { type: 'photo', media: { source: memPath }, caption: 'Memory Usage' },
@@ -287,13 +291,15 @@ bot.action('menu_status', async (ctx) => {
         { type: 'photo', media: { source: diskPath }, caption: 'Disk Usage' }
       ];
 
-      // Отправляем группу изображений
+      // Отправка медиа
       const sentMedia = await ctx.replyWithMediaGroup(mediaGroup);
       statusMediaMessages[ctx.chat.id] = sentMedia.map(msg => msg.message_id);
     } catch (imgErr) {
       console.error("Error generating images, sending text only:", imgErr.message);
+      await ctx.reply(`Error generating images: ${imgErr.message}`);
     }
     
+    // Ответ с текстом отчета
     await ctx.reply(text, {
       parse_mode: 'Markdown',
       disable_web_page_preview: true,
@@ -337,7 +343,7 @@ async function generateGaugeImage(value, label, fileName) {
             }]
         },
         options: {
-            responsive: false,
+            responsive: true,
             maintainAspectRatio: false,
             circumference: 180,
             rotation: 270,
@@ -380,6 +386,7 @@ async function generateAllGauges(metrics) {
     const cpuPath = await generateGaugeImage(metrics.cpuLoadPercent, 'CPU Load', 'cpu.jpg');
     const diskPath = await generateGaugeImage(metrics.diskUsagePercent, 'Disk Usage', 'disk.jpg');
 
+    // Возвращаем пути
     return { memPath, cpuPath, diskPath };
 }
 
@@ -407,8 +414,9 @@ async function getServerMetrics() {
   const procData = await si.processes();
   const processCount = procData.all;
 
-  const apiEndpoints = 15; // 🔥 Пример: количество API-эндпоинтов
-  const webhooksConnected = 5; // 🔥 Пример: количество подключенных Webhooks
+  // Добавляем дополнительную информацию о статусах API и Webhook
+  const apiEndpoints = 15; // Пример: количество API-эндпоинтов
+  const webhooksConnected = 5; // Пример: количество подключенных Webhooks
   const apiStability = responseTime < 500 ? "✅ Stable" : "⚠️ Unstable";
   const webhookStability = webhooksConnected > 3 ? "✅ Stable" : "⚠️ Unstable";
 
@@ -471,12 +479,12 @@ async function getDetailedServerStatus() {
 🔗 **API Endpoints:** ${metrics.apiEndpoints} (${metrics.apiStability})
 📬 **Webhooks:** ${metrics.webhooksConnected} (${metrics.webhookStability})`;
 
-    return {
+      return {
       text: reportText,
       images: {
-        mem: metrics.usedMemPercentage,
-        cpu: metrics.cpuLoadPercent,
-        disk: parseInt(metrics.diskUsageStr)
+        mem: metrics.usedMemPercentage,  // передаем процент как значение
+        cpu: metrics.cpuLoadPercent,    // передаем процент как значение
+        disk: metrics.diskUsagePercent // передаем процент как значение
       }
     };
   } catch (err) {
