@@ -241,9 +241,15 @@ bot.action('menu_cex', async (ctx) => {
 
     // Если сообщение пришло как callback_query, редактируем его, иначе отправляем новое
     if (ctx.update.callback_query && ctx.update.callback_query.message) {
-      await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
+      await ctx.editMessageText(text, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard.reply_markup
+      });
     } else {
-      await ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
+      await ctx.reply(text, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard.reply_markup
+      });
     }
   } catch (err) {
     console.error("Error in menu_cex action:", err.message);
@@ -251,7 +257,7 @@ bot.action('menu_cex', async (ctx) => {
 });
 
 // ====================
-// IN-MEMORY НАСТРОЙКИ для CEX
+// IN-MEMORY НАСТРОЙКИ для CEX Screen
 // ====================
 const cexSettings = {
   flowAlerts: { active: false },
@@ -263,7 +269,7 @@ const cexSettings = {
 };
 
 // ====================
-// Маппинг ярлыков кнопок к настройкам
+// Маппинг ярлыков (если требуется)
 // ====================
 const cexCategoryMapping = {
   "Flow Alerts": "flowAlerts",
@@ -275,29 +281,32 @@ const cexCategoryMapping = {
 };
 
 // ====================
-// Функция переключения состояний
+// Универсальная функция переключения состояния
 // ====================
-function toggleSetting(setting) {
-  cexSettings[setting].active = !cexSettings[setting].active;
-  return cexSettings[setting].active ? "✅" : "❌";
+function toggleSetting(settingName) {
+  if (cexSettings[settingName] !== undefined) {
+    cexSettings[settingName].active = !cexSettings[settingName].active;
+    return cexSettings[settingName].active;
+  }
+  return false;
 }
 
 // ====================
-// Обработчики переключения параметров
+// Обработчики переключения для CEX параметров
 // ====================
 
 bot.action('toggle_flow_alerts', async (ctx) => {
   try {
     await ctx.answerCbQuery();
-    const newMark = toggleSetting('flowAlerts');
+    toggleSetting('flowAlerts');
     const keyboard = Markup.inlineKeyboard([
       [
-        Markup.button.callback(`Flow Alerts ${newMark}`, "toggle_flow_alerts"),
+        Markup.button.callback(`Flow Alerts ${cexSettings.flowAlerts.active ? '✅' : '❌'}`, "toggle_flow_alerts"),
         Markup.button.callback("Filters ⚙️", "filters_flow_alerts")
       ],
       [Markup.button.callback("← Back", "menu_cex")]
     ]);
-    await ctx.editMessageReplyMarkup(keyboard.reply_markup);
+    await ctx.editMessageReplyMarkup({ reply_markup: keyboard.reply_markup });
   } catch (err) {
     console.error("Error in toggle_flow_alerts:", err.message);
   }
@@ -306,15 +315,15 @@ bot.action('toggle_flow_alerts', async (ctx) => {
 bot.action('toggle_cex_tracking', async (ctx) => {
   try {
     await ctx.answerCbQuery();
-    const newMark = toggleSetting('cexTracking');
+    toggleSetting('cexTracking');
     const keyboard = Markup.inlineKeyboard([
       [
-        Markup.button.callback(`CEX Tracking ${newMark}`, "toggle_cex_tracking"),
+        Markup.button.callback(`CEX Tracking ${cexSettings.cexTracking.active ? '✅' : '❌'}`, "toggle_cex_tracking"),
         Markup.button.callback("Filters ⚙️", "filters_cex_tracking")
       ],
       [Markup.button.callback("← Back", "menu_cex")]
     ]);
-    await ctx.editMessageReplyMarkup(keyboard.reply_markup);
+    await ctx.editMessageReplyMarkup({ reply_markup: keyboard.reply_markup });
   } catch (err) {
     console.error("Error in toggle_cex_tracking:", err.message);
   }
@@ -323,15 +332,15 @@ bot.action('toggle_cex_tracking', async (ctx) => {
 bot.action('toggle_all_spot', async (ctx) => {
   try {
     await ctx.answerCbQuery();
-    const newMark = toggleSetting('allSpot');
+    toggleSetting('allSpot');
     const keyboard = Markup.inlineKeyboard([
       [
-        Markup.button.callback(`All Spot ${newMark}`, "toggle_all_spot"),
+        Markup.button.callback(`All Spot ${cexSettings.allSpot.active ? '✅' : '❌'}`, "toggle_all_spot"),
         Markup.button.callback("Filters ⚙️", "filters_all_spot")
       ],
       [Markup.button.callback("← Back", "menu_cex")]
     ]);
-    await ctx.editMessageReplyMarkup(keyboard.reply_markup);
+    await ctx.editMessageReplyMarkup({ reply_markup: keyboard.reply_markup });
   } catch (err) {
     console.error("Error in toggle_all_spot:", err.message);
   }
@@ -340,15 +349,15 @@ bot.action('toggle_all_spot', async (ctx) => {
 bot.action('toggle_all_derivatives', async (ctx) => {
   try {
     await ctx.answerCbQuery();
-    const newMark = toggleSetting('allDerivatives');
+    toggleSetting('allDerivatives');
     const keyboard = Markup.inlineKeyboard([
       [
-        Markup.button.callback(`All Derivatives ${newMark}`, "toggle_all_derivatives"),
+        Markup.button.callback(`All Derivatives ${cexSettings.allDerivatives.active ? '✅' : '❌'}`, "toggle_all_derivatives"),
         Markup.button.callback("Filters ⚙️", "filters_all_derivatives")
       ],
       [Markup.button.callback("← Back", "menu_cex")]
     ]);
-    await ctx.editMessageReplyMarkup(keyboard.reply_markup);
+    await ctx.editMessageReplyMarkup({ reply_markup: keyboard.reply_markup });
   } catch (err) {
     console.error("Error in toggle_all_derivatives:", err.message);
   }
@@ -357,15 +366,15 @@ bot.action('toggle_all_derivatives', async (ctx) => {
 bot.action('toggle_all_spot_percent', async (ctx) => {
   try {
     await ctx.answerCbQuery();
-    const newMark = toggleSetting('allSpotPercent');
+    toggleSetting('allSpotPercent');
     const keyboard = Markup.inlineKeyboard([
       [
-        Markup.button.callback(`All Spot% ${newMark}`, "toggle_all_spot_percent"),
+        Markup.button.callback(`All Spot% ${cexSettings.allSpotPercent.active ? '✅' : '❌'}`, "toggle_all_spot_percent"),
         Markup.button.callback("Filters ⚙️", "filters_all_spot_percent")
       ],
       [Markup.button.callback("← Back", "menu_cex")]
     ]);
-    await ctx.editMessageReplyMarkup(keyboard.reply_markup);
+    await ctx.editMessageReplyMarkup({ reply_markup: keyboard.reply_markup });
   } catch (err) {
     console.error("Error in toggle_all_spot_percent:", err.message);
   }
@@ -374,68 +383,27 @@ bot.action('toggle_all_spot_percent', async (ctx) => {
 bot.action('toggle_all_derivatives_percent', async (ctx) => {
   try {
     await ctx.answerCbQuery();
-    const newMark = toggleSetting('allDerivativesPercent');
+    toggleSetting('allDerivativesPercent');
     const keyboard = Markup.inlineKeyboard([
       [
-        Markup.button.callback(`All Derivatives% ${newMark}`, "toggle_all_derivatives_percent"),
+        Markup.button.callback(`All Derivatives% ${cexSettings.allDerivativesPercent.active ? '✅' : '❌'}`, "toggle_all_derivatives_percent"),
         Markup.button.callback("Filters ⚙️", "filters_all_derivatives_percent")
       ],
       [Markup.button.callback("← Back", "menu_cex")]
     ]);
-    await ctx.editMessageReplyMarkup(keyboard.reply_markup);
+    await ctx.editMessageReplyMarkup({ reply_markup: keyboard.reply_markup });
   } catch (err) {
     console.error("Error in toggle_all_derivatives_percent:", err.message);
   }
 });
 
 // ====================
-// Обработчики подменю фильтров
-// ====================
-
-bot.action('filters_flow_alerts', async (ctx) => {
-  try {
-    await ctx.answerCbQuery();
-    await ctx.reply("🔍 *Flow Alerts Filters*\n\nНастройте фильтры для отслеживания крупных транзакций:", {
-      parse_mode: 'Markdown',
-      reply_markup: Markup.inlineKeyboard([
-        [Markup.button.callback("💎 Избранные монеты", "flow_fav_coins")],
-        [Markup.button.callback("🚫 Ненужные монеты", "flow_exclude_coins")],
-        [Markup.button.callback("🤖 AutoTrack", "flow_autotrack")],
-        [Markup.button.callback("← Back", "menu_cex")]
-      ])
-    });
-  } catch (err) {
-    console.error("Error in filters_flow_alerts:", err.message);
-  }
-});
-
-bot.action('filters_cex_tracking', async (ctx) => {
-  try {
-    await ctx.answerCbQuery();
-    await ctx.reply("🔍 *CEX Tracking Filters*\n\nНастройте фильтры для отслеживания торговой активности:", {
-      parse_mode: 'Markdown',
-      reply_markup: Markup.inlineKeyboard([
-        [Markup.button.callback("💎 Избранные монеты", "cex_fav_coins")],
-        [Markup.button.callback("🚫 Ненужные монеты", "cex_exclude_coins")],
-        [Markup.button.callback("📊 Rate +-5%", "cex_rate_5")],
-        [Markup.button.callback("📊 Rate +-10%", "cex_rate_10")],
-        [Markup.button.callback("⏳ 60 sec +-1%", "cex_rate_1m")],
-        [Markup.button.callback("🤖 AutoTrack", "cex_autotrack")],
-        [Markup.button.callback("← Back", "menu_cex")]
-      ])
-    });
-  } catch (err) {
-    console.error("Error in filters_cex_tracking:", err.message);
-  }
-});
-
-// ====================
-// Обработка кнопки "← Back" в CEX Screen
+// ОБРАБОТКА КНОПКИ "← Back"
 // ====================
 bot.action('back_from_cex', async (ctx) => {
   try {
     await ctx.answerCbQuery();
-    // Возвращаем пользователя в главное меню админ-бота
+    // Возвращаемся в главное меню (функция showMainMenu должна быть определена в основном файле админ бота)
     showMainMenu(ctx);
   } catch (err) {
     console.error("Error in back_from_cex:", err.message);
@@ -443,7 +411,56 @@ bot.action('back_from_cex', async (ctx) => {
 });
 
 // ====================
-// Экспортируем настройки и функцию переключения (если требуется для других модулей)
+// Подменю фильтров для Flow Alerts
+// ====================
+bot.action('filters_flow_alerts', async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+    await ctx.reply(
+      "🔍 *Flow Alerts Filters*\n\nНастройте фильтры для отслеживания крупных транзакций:",
+      {
+        parse_mode: 'Markdown',
+        reply_markup: Markup.inlineKeyboard([
+          [Markup.button.callback("💎 Избранные монеты", "flow_fav_coins")],
+          [Markup.button.callback("🚫 Ненужные монеты", "flow_exclude_coins")],
+          [Markup.button.callback("🤖 AutoTrack", "flow_autotrack")],
+          [Markup.button.callback("← Back", "menu_cex")]
+        ])
+      }
+    );
+  } catch (err) {
+    console.error("Error in filters_flow_alerts:", err.message);
+  }
+});
+
+// ====================
+// Подменю фильтров для CEX Tracking
+// ====================
+bot.action('filters_cex_tracking', async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+    await ctx.reply(
+      "🔍 *CEX Tracking Filters*\n\nНастройте фильтры для отслеживания торговой активности:",
+      {
+        parse_mode: 'Markdown',
+        reply_markup: Markup.inlineKeyboard([
+          [Markup.button.callback("💎 Избранные монеты", "cex_fav_coins")],
+          [Markup.button.callback("🚫 Ненужные монеты", "cex_exclude_coins")],
+          [Markup.button.callback("📊 Rate +-5%", "cex_rate_5")],
+          [Markup.button.callback("📊 Rate +-10%", "cex_rate_10")],
+          [Markup.button.callback("⏳ 60 sec +-1%", "cex_rate_1m")],
+          [Markup.button.callback("🤖 AutoTrack", "cex_autotrack")],
+          [Markup.button.callback("← Back", "menu_cex")]
+        ])
+      }
+    );
+  } catch (err) {
+    console.error("Error in filters_cex_tracking:", err.message);
+  }
+});
+
+// ====================
+// Экспортируем функции (если необходимо для использования в других модулях)
 // ====================
 module.exports = {
   cexSettings,
