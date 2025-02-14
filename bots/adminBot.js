@@ -4,6 +4,7 @@
 
 require('dotenv').config({ path: __dirname + '/../config/.env' });
 const { Telegraf, Markup } = require('telegraf');
+const fetch = require('node-fetch');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
@@ -276,22 +277,22 @@ bot.action('menu_status', async (ctx) => {
   await ctx.answerCbQuery();
   try {
     const { text, alert } = await getDetailedServerStatus();
-    
+
     // Отправка текстового отчёта
     await ctx.reply(text, {
       parse_mode: 'Markdown',
       disable_web_page_preview: true,
       reply_markup: Markup.inlineKeyboard([
-        [Markup.button.callback("\u2190 Back", "back_from_status")]
+        [Markup.button.callback("← Back", "back_from_status")]
       ]).reply_markup
     });
-    
-    // Отправка уведомления в админ-бот при критической нагрузке
+
+    // Отправка уведомления в админ-бот при критической нагрузке + кнопка рестарта
     if (alert) {
-      await ctx.reply(`\u26A0\uFE0F *Critical Server Alert!*\n${alert}`, {
+      await ctx.reply(`⚠️ *Critical Server Alert!*\n${alert}`, {
         parse_mode: 'Markdown',
         reply_markup: Markup.inlineKeyboard([
-          [Markup.button.callback("\uD83D\uDD04 Restart Server", "restart_server")]
+          [Markup.button.callback("🔄 Restart Server", "restart_server")]
         ]).reply_markup
       });
     }
@@ -306,7 +307,7 @@ bot.action('menu_status', async (ctx) => {
 bot.action('restart_server', async (ctx) => {
   await ctx.answerCbQuery();
   try {
-    await ctx.reply("\uD83D\uDD04 Restarting server...");
+    await ctx.reply("🔄 Restarting server...");
     require('child_process').exec('pm2 restart all', (error, stdout, stderr) => {
       if (error) {
         ctx.reply(`❌ Error restarting server: ${error.message}`);
@@ -326,11 +327,13 @@ async function getServerMetrics() {
   const port = process.env.PORT || 3000;
   const url = `http://localhost:${port}/`;
   const start = Date.now();
+
+  // Запрашиваем время ответа API
   const responseTime = await new Promise((resolve) => {
     http.get(url, (res) => {
       res.on('data', () => {});
       res.on('end', () => resolve(Date.now() - start));
-    }).on('error', () => resolve(9999));
+    }).on('error', () => resolve(9999)); 
   });
 
   const memData = await si.mem();
@@ -341,21 +344,44 @@ async function getServerMetrics() {
   const procData = await si.processes();
   const processCount = procData.all;
 
-  const apiEndpoints = 15;
-  const webhooksConnected = 5;
-  const apiStability = responseTime < 500 ? "✅ Stable" : "⚠️ Unstable";
+  // ДИНАМИЧЕСКИЙ ЗАПРОС API ENDPOINTS & WEBHOOKS
+  let apiEndpoints = 0;
+  let webhooksConnected = 0;
+  try {
+    const apiResponse = await fetch("http://localhost:3000/api/endpoints");
+    const webhooksResponse = await fetch("http://localhost:3000/api/webhooks");
+
+    if (apiResponse.ok) {
+      const apiData = await apiResponse.json();
+      apiEndpoints = Array.isArray(apiData) ? apiData.length : 0;
+    }
+
+    if (webhooksResponse.ok) {
+      const webhookData = await webhooksResponse.json();
+      webhooksConnected = Array.isArray(webhookData) ? webhookData.length : 0;
+    }
+  } catch (err) {
+    console.error("❌ Error fetching API/Webhooks:", err.message);
+  }
+
+  // Определение стабильности API & Webhooks
+  const apiStability = responseTime < 500 && apiEndpoints > 0 ? "✅ Stable" : "⚠️ Unstable";
   const webhookStability = webhooksConnected > 3 ? "✅ Stable" : "⚠️ Unstable";
 
+  // Расчёт использования памяти
   const usedMemPercentage = (((memData.total - memData.available) / memData.total) * 100).toFixed(0);
   const cpuLoadPercent = cpuLoad.currentLoad.toFixed(2);
+  
   let alertMessage = "";
 
+  // Расчет загрузки сети
   let throughput = "0 KB/s";
   if (netStats && netStats.length > 0) {
     const totalBytesPerSec = netStats[0].rx_sec + netStats[0].tx_sec;
     throughput = (totalBytesPerSec / 1024).toFixed(2) + " KB/s";
   }
 
+  // Определение использования диска
   let diskUsagePercent = "0";
   let diskUsageStr = "N/A";
   if (fsData && fsData.length > 0) {
@@ -364,6 +390,7 @@ async function getServerMetrics() {
     diskUsageStr = `${(rootFs.used / (1024 * 1024 * 1024)).toFixed(2)} / ${(rootFs.size / (1024 * 1024 * 1024)).toFixed(2)} GB (${diskUsagePercent}%)`;
   }
 
+  // Проверка критических значений
   if (cpuLoadPercent > 90) alertMessage += "🔥 High CPU Load!\n";
   if (usedMemPercentage > 90) alertMessage += "🛑 Low Memory Available!\n";
   if (diskUsagePercent > 90) alertMessage += "💾 Disk Almost Full!\n";
@@ -404,7 +431,9 @@ async function getDetailedServerStatus() {
 📊 **Throughput:** ${metrics.throughput}
 👥 **Active Users:** ${metrics.activeUsers}
 🔧 **Processes:** ${metrics.processCount}
-🖥 **Memory:** Total: ${metrics.totalMem} MB, \n   Used: ${metrics.usedMem} MB, \n   Free: ${metrics.freeMem} MB (${metrics.usedMemPercentage}%)
+🖥 **Memory:** Total: ${metrics.totalMem} MB, 
+   Used: ${metrics.usedMem} MB, 
+   Free: ${metrics.freeMem} MB (${metrics.usedMemPercentage}%)
 ⚡ **CPU Load:** ${metrics.cpuLoadPercent}%
 💾 **Disk Usage:** ${metrics.diskUsageStr}
 ⏳ **Uptime:** ${metrics.uptime}
@@ -412,10 +441,7 @@ async function getDetailedServerStatus() {
 🔗 **API Endpoints:** ${metrics.apiEndpoints} (${metrics.apiStability})
 📬 **Webhooks:** ${metrics.webhooksConnected} (${metrics.webhookStability})`;
 
-    return {
-      text: reportText,
-      alert: metrics.alert
-    };
+    return { text: reportText, alert: metrics.alert };
   } catch (err) {
     return { text: `Error retrieving server metrics: ${err.message}`, alert: null };
   }
