@@ -301,6 +301,10 @@ bot.action('menu_status', async (ctx) => {
   }
 });
 
+// ====================
+// Функция обработки кнопки "Restart Server"
+// ====================
+
 bot.action('restart_server', async (ctx) => {
   await ctx.answerCbQuery();
   try {
@@ -308,15 +312,23 @@ bot.action('restart_server', async (ctx) => {
 
     require('child_process').exec(
       `if [ -f /.dockerenv ]; then 
-         echo "🚀 Docker detected. Restarting container..."; 
-         container_id=$(hostname); 
-         docker restart $container_id && echo "✅ Docker container restarted." || echo "❌ Failed to restart Docker container.";
-       elif command -v pm2 &> /dev/null && pm2 status | grep -q "online"; then 
-         echo "🔄 PM2 detected. Restarting process..."; 
-         pm2 restart all && echo "✅ PM2 processes restarted." || echo "❌ Failed to restart PM2 processes.";
+         echo "🚀 Docker detected. Restarting container...";
+         container_id=$(cat /proc/1/cgroup | grep -oE '[0-9a-f]{64}' | head -n 1);
+         if [ -n "$container_id" ]; then 
+           docker restart $container_id && echo "✅ Docker container restarted.";
+         else 
+           echo "❌ Error: Unable to detect Docker container ID."; 
+           exit 1;
+         fi
+       elif command -v pm2 &> /dev/null && pm2 list --no-color | grep -q "index"; then 
+         echo "🔄 PM2 detected. Restarting process...";
+         pm2 restart index && echo "✅ PM2 process restarted.";
+       elif command -v systemctl &> /dev/null && systemctl is-active --quiet CryptoHawk; then
+         echo "⚡ Systemd detected. Restarting service...";
+         systemctl restart CryptoHawk && echo "✅ Service restarted.";
        else 
-         echo "❌ Error: Neither Docker nor PM2 detected. Ensure you are running inside a known environment."; 
-         exit 1; 
+         echo "❌ Error: Could not detect Docker, PM2, or Systemd.";
+         exit 1;
        fi`,
       (error, stdout, stderr) => {
         if (error) {
