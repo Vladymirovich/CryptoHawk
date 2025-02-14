@@ -203,7 +203,7 @@ try {
 
 
 // ====================
-// CEX Screen - Главное меню
+// CEX Screen меню
 // ====================
 bot.action('menu_cex', async (ctx) => {
   try {
@@ -253,9 +253,13 @@ function showCexMenu(ctx) {
   );
 
   try {
-    ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
+    if (ctx.update.callback_query && ctx.update.callback_query.message) {
+      ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
+    } else {
+      ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
+    }
   } catch (error) {
-    ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
+    console.error("❌ Ошибка обновления меню CEX Screen:", error.message);
   }
 }
 
@@ -302,28 +306,23 @@ bot.action('back_from_cex', async (ctx) => {
 const filterOptions = {
   flowAlerts: ["💎 Избранные монеты", "🚫 Ненужные монеты", "🤖 AutoTrack"],
   cexTracking: ["💎 Избранные монеты", "🚫 Ненужные монеты", "📊 Rate +-5%", "📊 Rate +-10%", "⏳ 60 sec +-1%", "🤖 AutoTrack"],
-  allSpot: ["5min", "30min", "60min", "24hrs", "buy", "sell"],
-  allDerivatives: ["5min", "30min", "60min", "24hrs", "buy", "sell"],
-  allSpotPercent: ["5min", "30min", "60min", "24hrs", "buy", "sell"],
-  allDerivativesPercent: ["5min", "30min", "60min", "24hrs", "buy", "sell"]
+  allSpot: ["5min", "30min", "60min", "24hrs", "Buy", "Sell"],
+  allDerivatives: ["5min", "30min", "60min", "24hrs", "Buy", "Sell"],
+  allSpotPercent: ["5min", "30min", "60min", "24hrs", "Buy", "Sell"],
+  allDerivativesPercent: ["5min", "30min", "60min", "24hrs", "Buy", "Sell"]
 };
 
 Object.keys(cexCategoryMapping).forEach((label) => {
   bot.action(`filters_${cexCategoryMapping[label]}`, async (ctx) => {
     try {
       await ctx.answerCbQuery();
+      const categoryKey = cexCategoryMapping[label];
+      const filterButtons = filterOptions[categoryKey].map((filter) => [Markup.button.callback(filter, `${categoryKey}_${filter.replace(/\s+/g, '_').toLowerCase()}`)]);
+      filterButtons.push([Markup.button.callback("← Back", "menu_cex")]);
+
       await ctx.reply(
         `🔍 *${label} Filters*\n\nНастройте фильтры для категории ${label}:`,
-        {
-          parse_mode: 'Markdown',
-          reply_markup: Markup.inlineKeyboard(
-            filterOptions[cexCategoryMapping[label]].map((option) => [
-              Markup.button.callback(option, `${cexCategoryMapping[label]}_${option.replace(/\s+/g, "_").toLowerCase()}`)
-            ]).concat([
-              [Markup.button.callback("← Back", "menu_cex")]
-            ])
-          )
-        }
+        { parse_mode: 'Markdown', reply_markup: Markup.inlineKeyboard(filterButtons) }
       );
     } catch (err) {
       console.error(`Error in filters_${cexCategoryMapping[label]}:`, err.message);
@@ -338,7 +337,6 @@ module.exports = {
   cexSettings,
   toggleCexSetting
 };
-
 
 
 
