@@ -4,7 +4,7 @@
 
 require('dotenv').config({ path: __dirname + '/../config/.env' });
 const { Telegraf, Markup } = require('telegraf');
-const fetch = require('node-fetch');
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
