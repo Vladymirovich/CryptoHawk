@@ -304,13 +304,13 @@ bot.action('menu_status', async (ctx) => {
 // ====================
 // Функция обработки кнопки "Restart Server"
 // ====================
-bot.action('restart_server', async (ctx) => {
+bot.action("restart_server", async (ctx) => {
   await ctx.answerCbQuery();
   try {
     await ctx.reply("🔄 Restarting server...");
-    require('child_process').exec('pm2 restart all', (error, stdout, stderr) => {
+    require("child_process").exec("pm2 restart all || echo 'PM2 not installed'", (error, stdout, stderr) => {
       if (error) {
-        ctx.reply(`❌ Error restarting server: ${error.message}`);
+        ctx.reply(`❌ Error restarting server: ${stderr || error.message}`);
       } else {
         ctx.reply("✅ Server restarted successfully.");
       }
@@ -331,11 +331,12 @@ async function getServerMetrics() {
   // Запрашиваем время ответа API
   const responseTime = await new Promise((resolve) => {
     http.get(url, (res) => {
-      res.on('data', () => {});
-      res.on('end', () => resolve(Date.now() - start));
-    }).on('error', () => resolve(9999)); 
+      res.on("data", () => {});
+      res.on("end", () => resolve(Date.now() - start));
+    }).on("error", () => resolve(9999));
   });
 
+  // Сбор метрик системы
   const memData = await si.mem();
   const cpuLoad = await si.currentLoad();
   const fsData = await si.fsSize();
@@ -344,19 +345,23 @@ async function getServerMetrics() {
   const procData = await si.processes();
   const processCount = procData.all;
 
-  // ДИНАМИЧЕСКИЙ ЗАПРОС API ENDPOINTS & WEBHOOKS
+  // ✅ ДИНАМИЧЕСКИЙ ЗАПРОС API ENDPOINTS & WEBHOOKS
   let apiEndpoints = 0;
   let webhooksConnected = 0;
   try {
-    const apiResponse = await fetch("http://localhost:3000/api/endpoints");
-    const webhooksResponse = await fetch("http://localhost:3000/api/webhooks");
+    const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
-    if (apiResponse.ok) {
+    const [apiResponse, webhooksResponse] = await Promise.all([
+      fetch(`${url}api/endpoints`, { timeout: 5000 }).catch(() => null),
+      fetch(`${url}api/webhooks`, { timeout: 5000 }).catch(() => null)
+    ]);
+
+    if (apiResponse && apiResponse.ok) {
       const apiData = await apiResponse.json();
       apiEndpoints = Array.isArray(apiData) ? apiData.length : 0;
     }
 
-    if (webhooksResponse.ok) {
+    if (webhooksResponse && webhooksResponse.ok) {
       const webhookData = await webhooksResponse.json();
       webhooksConnected = Array.isArray(webhookData) ? webhookData.length : 0;
     }
@@ -371,7 +376,7 @@ async function getServerMetrics() {
   // Расчёт использования памяти
   const usedMemPercentage = (((memData.total - memData.available) / memData.total) * 100).toFixed(0);
   const cpuLoadPercent = cpuLoad.currentLoad.toFixed(2);
-  
+
   let alertMessage = "";
 
   // Расчет загрузки сети
