@@ -1,4 +1,4 @@
-// settings.js
+// CEX/settings.js
 const fs = require('fs');
 const path = require('path');
 
@@ -14,13 +14,12 @@ const defaultCexSettings = {
   allDerivativesPercent: {}
 };
 
-// Функция загрузки настроек (если файл существует, возвращает данные с применением значений по умолчанию)
+// Функция загрузки настроек (если файл существует, объединяет с настройками по умолчанию)
 function loadSettings() {
   try {
     if (fs.existsSync(settingsPath)) {
       const data = fs.readFileSync(settingsPath, 'utf8');
       const parsed = JSON.parse(data);
-      // Объединяем значения по умолчанию с загруженными данными (приоритет у загруженных)
       return { ...defaultCexSettings, ...parsed };
     }
   } catch (err) {
