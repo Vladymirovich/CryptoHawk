@@ -358,16 +358,19 @@ Object.keys(cexCategoryMapping).forEach((label) => {
 // --------------------
 ["flowAlerts", "cexTracking"].forEach((category) => {
   ["💎 Избранные монеты", "🚫 Ненужные монеты"].forEach((filter) => {
-    // Формируем безопасный идентификатор с поддержкой Unicode
+    // Формируем безопасный идентификатор, поддерживающий Unicode (NFD нормализация и замена всех небуквенно-цифровых символов на "_")
     const safeId = filter.normalize('NFD').replace(/[^\p{L}\p{N}]/gu, '_').toLowerCase();
     const actionId = `${category}_input_${safeId}`;
     bot.action(actionId, async (ctx) => {
       try {
         await ctx.answerCbQuery();
         await ctx.reply(`Введите список монет для фильтра "${filter}" (через запятую):`);
-        
-        // Одноразовый обработчик текста
-        const onText = async (newCtx) => {
+        // Определяем отображаемое название категории для обновления меню фильтров
+        const displayLabel = Object.keys(cexCategoryMapping).find(
+          (l) => cexCategoryMapping[l] === category
+        ) || category;
+        // Используем bot.once, чтобы обработчик сработал один раз и автоматически удалился
+        bot.once('text', async (newCtx) => {
           if (
             newCtx.chat.id === ctx.chat.id &&
             newCtx.message &&
@@ -380,16 +383,10 @@ Object.keys(cexCategoryMapping).forEach((label) => {
             cexUserFilters[category][filter] = userInput;
             saveSettings(cexUserFilters);
             await newCtx.reply(`Настройки для фильтра "${filter}" сохранены: ${userInput}`);
-            // Удаляем обработчик после получения текста
-            bot.removeListener('text', onText);
-            // Обновляем меню фильтров для данной категории, чтобы появилась кнопка "← Back"
-            const displayLabel = Object.keys(cexCategoryMapping).find(
-              l => cexCategoryMapping[l] === category
-            ) || category;
+            // Обновляем меню фильтров для данной категории, чтобы вернуть кнопку "← Back"
             await showFilterMenu(ctx, category, displayLabel);
           }
-        };
-        bot.on('text', onText);
+        });
       } catch (err) {
         logger.error(`Error handling input for ${actionId}:`, err.message);
       }
