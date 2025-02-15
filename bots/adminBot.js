@@ -353,57 +353,41 @@ Object.keys(cexCategoryMapping).forEach((label) => {
   });
 });
 
-// Global object for storing pending text input requests per chat
-const pendingTextInputs = {};
-
 // --------------------
-// Handlers for filters requiring text input 
-// (e.g., "💎 Избранные монеты" and "🚫 Ненужные монеты")
+// Обработчики для фильтров, требующих текстового ввода (например, "💎 Избранные монеты" и "🚫 Ненужные монеты")
 // --------------------
 ["flowAlerts", "cexTracking"].forEach((category) => {
   ["💎 Избранные монеты", "🚫 Ненужные монеты"].forEach((filter) => {
-    // Create a safe identifier for the filter
-    const safeId = filter.normalize('NFD').replace(/[^\p{L}\p{N}]/gu, '_').toLowerCase();
-    const actionId = `${category}_input_${safeId}`;
-    
+    const actionId = `${category}_input_${filter.replace(/\s+/g, '_').toLowerCase()}`;
     bot.action(actionId, async (ctx) => {
       try {
         await ctx.answerCbQuery();
         await ctx.reply(`Введите список монет для фильтра "${filter}" (через запятую):`);
-        // Save pending request for this chat
-        pendingTextInputs[ctx.chat.id] = { category, filter };
-        
-        // Define a one–time text handler
+        // Одноразовый обработчик ввода текста
         const onText = async (newCtx) => {
-          // Ensure the text comes from the same chat and contains text
           if (newCtx.chat.id === ctx.chat.id && newCtx.message && newCtx.message.text) {
             const userInput = newCtx.message.text;
-            // Save the user's input in your filters settings
             if (!cexUserFilters[category]) {
               cexUserFilters[category] = {};
             }
             cexUserFilters[category][filter] = userInput;
             saveSettings(cexUserFilters);
             await newCtx.reply(`Настройки для фильтра "${filter}" сохранены: ${userInput}`);
-            // Remove the listener (extra safety)
-            bot.removeListener('text', onText);
-            // Clear the pending request for this chat
-            delete pendingTextInputs[ctx.chat.id];
-            // Determine display label for the category (fallback to the category key if not found)
+            // Убираем обработчик после получения текста
+            bot.off('text', onText);
+            // Обновляем подменю фильтров для данной категории, чтобы кнопка "← Back" была видна
             const displayLabel = Object.keys(cexCategoryMapping).find(l => cexCategoryMapping[l] === category) || category;
-            // Update the filter menu so the "← Back" button reappears
             await showFilterMenu(ctx, category, displayLabel);
           }
         };
-        
-        // Attach the handler so it fires once
-        bot.once('text', onText);
+        bot.on('text', onText);
       } catch (err) {
         logger.error(`Error handling input for ${actionId}:`, err.message);
       }
     });
   });
 });
+
 
 // --------------------
 // Обработчики для остальных фильтров – переключение состояния (без ввода)
