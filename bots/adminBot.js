@@ -358,16 +358,15 @@ Object.keys(cexCategoryMapping).forEach((label) => {
 // --------------------
 ["flowAlerts", "cexTracking"].forEach((category) => {
   ["💎 Избранные монеты", "🚫 Ненужные монеты"].forEach((filter) => {
-    // Создаём безопасный идентификатор для callback‑data
-    const safeId = filter.replace(/[^\w]/g, '_').toLowerCase();
+    // Формируем безопасный идентификатор с поддержкой Unicode
+    const safeId = filter.normalize('NFD').replace(/[^\p{L}\p{N}]/gu, '_').toLowerCase();
     const actionId = `${category}_input_${safeId}`;
     bot.action(actionId, async (ctx) => {
       try {
         await ctx.answerCbQuery();
-        // Запрашиваем у пользователя ввод
         await ctx.reply(`Введите список монет для фильтра "${filter}" (через запятую):`);
         
-        // Определяем одноразовый обработчик для следующего текстового сообщения
+        // Одноразовый обработчик текста
         const onText = async (newCtx) => {
           if (
             newCtx.chat.id === ctx.chat.id &&
@@ -381,13 +380,16 @@ Object.keys(cexCategoryMapping).forEach((label) => {
             cexUserFilters[category][filter] = userInput;
             saveSettings(cexUserFilters);
             await newCtx.reply(`Настройки для фильтра "${filter}" сохранены: ${userInput}`);
-            // После сохранения – обновляем меню фильтров для этой категории, чтобы кнопка «← Back» снова появилась
-            const displayLabel = Object.keys(cexCategoryMapping).find(l => cexCategoryMapping[l] === category) || category;
+            // Удаляем обработчик после получения текста
+            bot.removeListener('text', onText);
+            // Обновляем меню фильтров для данной категории, чтобы появилась кнопка "← Back"
+            const displayLabel = Object.keys(cexCategoryMapping).find(
+              l => cexCategoryMapping[l] === category
+            ) || category;
             await showFilterMenu(ctx, category, displayLabel);
           }
         };
-        // Регистрируем обработчик, который сработает один раз
-        bot.once('text', onText);
+        bot.on('text', onText);
       } catch (err) {
         logger.error(`Error handling input for ${actionId}:`, err.message);
       }
