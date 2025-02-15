@@ -363,15 +363,13 @@ Object.keys(cexCategoryMapping).forEach((label) => {
       try {
         await ctx.answerCbQuery();
         await ctx.reply(`Введите список монет для фильтра "${filter}" (через запятую):`);
-        let handled = false; // Флаг, чтобы обработать только первое сообщение
+        // Создаем одноразовый обработчик ввода текста
         const onText = async (newCtx) => {
-          if (handled) return; // Если уже обработали, выходим
           if (
             newCtx.chat.id === ctx.chat.id &&
             newCtx.message &&
             newCtx.message.text
           ) {
-            handled = true;
             const userInput = newCtx.message.text;
             if (!cexUserFilters[category]) {
               cexUserFilters[category] = {};
@@ -379,15 +377,10 @@ Object.keys(cexCategoryMapping).forEach((label) => {
             cexUserFilters[category][filter] = userInput;
             saveSettings(cexUserFilters);
             await newCtx.reply(`Настройки для фильтра "${filter}" сохранены: ${userInput}`);
-            // Пытаемся удалить слушатель, если такая функция существует
-            if (typeof bot.off === 'function') {
-              bot.off('text', onText);
-            } else if (typeof bot.removeListener === 'function') {
-              bot.removeListener('text', onText);
-            }
+            // Убираем обработчик после получения текста, используя bot.off
+            bot.off('text', onText);
             // Обновляем подменю фильтров для данной категории, чтобы вернуть кнопку "← Back"
-            const displayLabel =
-              Object.keys(cexCategoryMapping).find(l => cexCategoryMapping[l] === category) || category;
+            const displayLabel = Object.keys(cexCategoryMapping).find(l => cexCategoryMapping[l] === category) || category;
             await showFilterMenu(ctx, category, displayLabel);
           }
         };
