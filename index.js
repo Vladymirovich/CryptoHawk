@@ -25,7 +25,7 @@ async function launchBot(bot, name) {
 
     // ✅ После успешного запуска Admin Bot, запускаем другие боты
     const marketStatsBot = require('./bots/marketStatsBot');
-    const cexBot = require('./bots/cexBot');
+    const cexBot = require('./CEX/cexBot');
 
     await launchBot(marketStatsBot.bot, "MarketStats Bot");
     await launchBot(cexBot.bot, "CEX Bot");
