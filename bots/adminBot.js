@@ -363,7 +363,7 @@ Object.keys(cexCategoryMapping).forEach((label) => {
       try {
         await ctx.answerCbQuery();
         await ctx.reply(`Введите список монет для фильтра "${filter}" (через запятую):`);
-        // Создаем одноразовый обработчик ввода текста
+        // Используем bot.once, чтобы обработчик сработал только один раз
         const onText = async (newCtx) => {
           if (
             newCtx.chat.id === ctx.chat.id &&
@@ -377,21 +377,19 @@ Object.keys(cexCategoryMapping).forEach((label) => {
             cexUserFilters[category][filter] = userInput;
             saveSettings(cexUserFilters);
             await newCtx.reply(`Настройки для фильтра "${filter}" сохранены: ${userInput}`);
-            // Убираем обработчик после получения текста, используя bot.off
-            bot.off('text', onText);
-            // Обновляем подменю фильтров для данной категории, чтобы вернуть кнопку "← Back"
-            const displayLabel = Object.keys(cexCategoryMapping).find(l => cexCategoryMapping[l] === category) || category;
+            // После сохранения обновляем подменю фильтров, чтобы отобразить кнопку "← Back"
+            const displayLabel =
+              Object.keys(cexCategoryMapping).find(l => cexCategoryMapping[l] === category) || category;
             await showFilterMenu(ctx, category, displayLabel);
           }
         };
-        bot.on('text', onText);
+        bot.once('text', onText);
       } catch (err) {
         logger.error(`Error handling input for ${actionId}:`, err.message);
       }
     });
   });
 });
-
 
 // --------------------
 // Обработчики для остальных фильтров – переключение состояния (без ввода)
