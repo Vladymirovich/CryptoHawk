@@ -353,17 +353,23 @@ Object.keys(cexCategoryMapping).forEach((label) => {
   });
 });
 
+// Функция для генерации безопасного идентификатора из строки (убираем символы, не являющиеся буквенно-цифровыми или подчёркиваниями)
+function getSafeActionId(text) {
+  return text.normalize('NFKD').replace(/[^\w]/g, '_').toLowerCase();
+}
+
 // --------------------
 // Обработчики для фильтров, требующих текстового ввода (например, "💎 Избранные монеты" и "🚫 Ненужные монеты")
 // --------------------
 ["flowAlerts", "cexTracking"].forEach((category) => {
   ["💎 Избранные монеты", "🚫 Ненужные монеты"].forEach((filter) => {
-    const actionId = `${category}_input_${filter.replace(/\s+/g, '_').toLowerCase()}`;
+    const safeId = getSafeActionId(filter);
+    const actionId = `${category}_input_${safeId}`;
     bot.action(actionId, async (ctx) => {
       try {
         await ctx.answerCbQuery();
         await ctx.reply(`Введите список монет для фильтра "${filter}" (через запятую):`);
-        // Используем bot.once, чтобы обработчик сработал только один раз
+        // Используем one-time обработчик ввода текста
         const onText = async (newCtx) => {
           if (
             newCtx.chat.id === ctx.chat.id &&
@@ -377,12 +383,13 @@ Object.keys(cexCategoryMapping).forEach((label) => {
             cexUserFilters[category][filter] = userInput;
             saveSettings(cexUserFilters);
             await newCtx.reply(`Настройки для фильтра "${filter}" сохранены: ${userInput}`);
-            // После сохранения обновляем подменю фильтров, чтобы отобразить кнопку "← Back"
-            const displayLabel =
-              Object.keys(cexCategoryMapping).find(l => cexCategoryMapping[l] === category) || category;
+            // После ввода обновляем меню фильтров для данной категории,
+            // чтобы кнопка "← Back" была видна и можно было вернуться в меню фильтров
+            const displayLabel = Object.keys(cexCategoryMapping).find(l => cexCategoryMapping[l] === category) || category;
             await showFilterMenu(ctx, category, displayLabel);
           }
         };
+        // Слушаем следующее текстовое сообщение один раз
         bot.once('text', onText);
       } catch (err) {
         logger.error(`Error handling input for ${actionId}:`, err.message);
