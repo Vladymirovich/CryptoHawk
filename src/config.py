@@ -16,6 +16,7 @@ COINMARKETCAP_API_KEY: Optional[str] = None
 WEBHOOK_SECRET: Optional[str] = None
 WEBHOOK_PORT: int = 3000
 ADMIN_LIST: List[int] = []
+TARGET_CHAT_ID: Optional[int] = None
 
 def load_configuration(config_dir: Path):
     """
@@ -39,6 +40,10 @@ def load_configuration(config_dir: Path):
     COINMARKETCAP_API_KEY = os.getenv("COINMARKETCAP_API_KEY")
     WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET")
     WEBHOOK_PORT = int(os.getenv("WEBHOOK_PORT", "3000"))
+
+    chat_id_str = os.getenv("TARGET_CHAT_ID")
+    if chat_id_str:
+        TARGET_CHAT_ID = int(chat_id_str)
 
     # --- Admin Whitelist ---
     admin_file_path = config_dir / 'admins.json'
