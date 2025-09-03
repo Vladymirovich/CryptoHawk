@@ -7,7 +7,7 @@ const { cexUserFilters } = require('./settings');  // Обратите вним�
 require('dotenv').config({ path: __dirname + '/../config/.env' });
 
 // Загрузка шаблонов уведомлений из файла templates.json
-const templatesPath = path.join(__dirname, '../config/templates.json');
+const templatesPath = path.join(__dirname, 'templates.json');
 let templates = {};
 try {
   if (fs.existsSync(templatesPath)) {
