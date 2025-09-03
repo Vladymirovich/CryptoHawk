@@ -16,3 +16,7 @@ psutil
 
 # Charting
 matplotlib
+
+# Testing
+pytest
+pytest-asyncio

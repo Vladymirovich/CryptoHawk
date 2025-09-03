@@ -2,49 +2,63 @@ import os
 import json
 from dotenv import load_dotenv
 from pathlib import Path
+from typing import List, Optional
+
 from .logger import get_logger
 
 log = get_logger(__name__)
 
-# --- Load Environment Variables ---
-# Construct the path to the .env file, which is in the parent directory's 'config' folder
-env_path = Path(__file__).parent.parent / 'config' / '.env'
+# --- Global Configuration Variables (with defaults) ---
+TELEGRAM_BOSS_BOT_TOKEN: Optional[str] = None
+TELEGRAM_MARKET_BOT_TOKEN: Optional[str] = None
+TELEGRAM_CEX_BOT_TOKEN: Optional[str] = None
+COINMARKETCAP_API_KEY: Optional[str] = None
+WEBHOOK_SECRET: Optional[str] = None
+WEBHOOK_PORT: int = 3000
+ADMIN_LIST: List[int] = []
 
-if env_path.exists():
-    load_dotenv(dotenv_path=env_path)
-    log.info(".env file loaded successfully.")
-else:
-    log.warning(".env file not found at %s", env_path)
+def load_configuration(config_dir: Path):
+    """
+    Loads configuration from a specified directory.
+    This function populates the global config variables.
+    """
+    global TELEGRAM_BOSS_BOT_TOKEN, TELEGRAM_MARKET_BOT_TOKEN, TELEGRAM_CEX_BOT_TOKEN
+    global COINMARKETCAP_API_KEY, WEBHOOK_SECRET, WEBHOOK_PORT, ADMIN_LIST
 
-# --- Telegram Bot Tokens ---
-TELEGRAM_BOSS_BOT_TOKEN = os.getenv("TELEGRAM_BOSS_BOT_TOKEN")
-TELEGRAM_MARKET_BOT_TOKEN = os.getenv("TELEGRAM_MARKET_BOT_TOKEN")
-TELEGRAM_CEX_BOT_TOKEN = os.getenv("TELEGRAM_CEX_BOT_TOKEN")
+    # --- Load Environment Variables ---
+    env_path = config_dir / '.env'
+    if env_path.exists():
+        load_dotenv(dotenv_path=env_path)
+        log.info(".env file loaded successfully from %s.", env_path)
+    else:
+        log.warning(".env file not found at %s. Using environment variables.", env_path)
 
-# --- API Keys ---
-COINMARKETCAP_API_KEY = os.getenv("COINMARKETCAP_API_KEY")
+    TELEGRAM_BOSS_BOT_TOKEN = os.getenv("TELEGRAM_BOSS_BOT_TOKEN")
+    TELEGRAM_MARKET_BOT_TOKEN = os.getenv("TELEGRAM_MARKET_BOT_TOKEN")
+    TELEGRAM_CEX_BOT_TOKEN = os.getenv("TELEGRAM_CEX_BOT_TOKEN")
+    COINMARKETCAP_API_KEY = os.getenv("COINMARKETCAP_API_KEY")
+    WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET")
+    WEBHOOK_PORT = int(os.getenv("WEBHOOK_PORT", "3000"))
 
-# --- Webhook Settings ---
-WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET")
-WEBHOOK_PORT = int(os.getenv("WEBHOOK_PORT", "3000")) # Default to 3000 if not set
+    # --- Admin Whitelist ---
+    admin_file_path = config_dir / 'admins.json'
+    try:
+        with open(admin_file_path, 'r') as f:
+            data = json.load(f)
+            ADMIN_LIST = data.get("admins", [])
+            log.info("admins.json loaded successfully. %d admins found.", len(ADMIN_LIST))
+    except FileNotFoundError:
+        log.error("admins.json not found at %s", admin_file_path)
+        ADMIN_LIST = []
+    except json.JSONDecodeError:
+        log.error("Error decoding admins.json.")
+        ADMIN_LIST = []
+    except Exception as e:
+        log.error("An error occurred while loading admins.json: %s", e)
+        ADMIN_LIST = []
 
-# --- Admin Whitelist ---
-ADMIN_LIST = []
-try:
-    admin_file_path = Path(__file__).parent.parent / 'config' / 'admins.json'
-    with open(admin_file_path, 'r') as f:
-        data = json.load(f)
-        ADMIN_LIST = data.get("admins", [])
-        log.info("admins.json loaded successfully. %d admins found.", len(ADMIN_LIST))
-except FileNotFoundError:
-    log.error("admins.json not found at %s", admin_file_path)
-except json.JSONDecodeError:
-    log.error("Error decoding admins.json.")
-except Exception as e:
-    log.error("An error occurred while loading admins.json: %s", e)
 
-# --- Validation ---
-def validate_config():
+def validate_configuration():
     """Checks if essential configuration is missing."""
     required_vars = {
         "TELEGRAM_BOSS_BOT_TOKEN": TELEGRAM_BOSS_BOT_TOKEN,
@@ -61,4 +75,5 @@ def validate_config():
 
     log.info("Configuration validated successfully.")
 
-validate_config()
+# Note: Configuration is no longer loaded on import.
+# The main application entrypoint must call load_configuration().
