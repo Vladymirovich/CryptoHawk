@@ -42,9 +42,13 @@ async def main():
     """
     log.info("🚀 Starting CryptoHawk project (Python Version)...")
 
-    # Validate configuration first
+    # Load and validate configuration first
+    from pathlib import Path
+    config_dir = Path(__file__).parent / 'config'
+    config.load_configuration(config_dir)
+
     try:
-        config.validate_config()
+        config.validate_configuration()
     except ValueError as e:
         log.critical(f"Configuration error: {e}")
         return
